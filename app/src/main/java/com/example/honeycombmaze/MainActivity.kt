@@ -462,13 +462,13 @@ class MainActivity : ComponentActivity() {
                                 if (showTutorial) {
                                     val tutorialText =
                                         when(screen.mode) {
-                                        GameMode.CLASSIC -> "Navigate the maze to find the exit. Swipe or use the on-screen controls to move."
-                                        GameMode.CHASERS -> "Watch out for the chasers! They will hunt you down. Reach the exit before they catch you."
-                                        GameMode.TRAPS -> "The maze is littered with hidden traps. Memorize their locations and step carefully to reach the exit."
-                                        GameMode.DARKNESS -> "Your vision is limited. You can only see the immediate surroundings. Find the exit before you get lost."
-                                        GameMode.LAVA_FLOOR -> "The floor is lava! Tiles crumble into fiery lava as you step off them. Plan your path carefully and do not retrace your steps!"
-                                        GameMode.TIME_RUSH -> "Race against the clock! Reach the exit before time runs out. Collect +5s time bonus orbs along the way."
-                                        GameMode.ICE_SLIDE -> "Once you move, you won't stop sliding until you hit a wall! Plan your path carefully."
+                                        GameMode.CLASSIC -> "Navigate the maze to reach the goal. Swipe or use the on-screen controls to move."
+                                        GameMode.CHASERS -> "Watch out for the chasers! They will hunt you down. Reach the goal before they catch you."
+                                        GameMode.TRAPS -> "The maze is littered with hidden traps. Memorize their locations and step carefully to reach the goal."
+                                        GameMode.DARKNESS -> "Your vision is limited. You can only see the immediate surroundings. Reach the goal before you get lost."
+                                        GameMode.LAVA_FLOOR -> "The floor is lava! Tiles crumble into fiery lava as you step off them. Plan your path carefully to reach the goal!"
+                                        GameMode.TIME_RUSH -> "Race against the clock! Reach the goal before time runs out. Collect +5s time bonus orbs along the way."
+                                        GameMode.ICE_SLIDE -> "Once you move, you won't stop sliding until you hit a wall! Plan your path carefully to reach the goal."
                                     }
                                     AlertDialog(
                                         onDismissRequest = { showTutorial = false },
