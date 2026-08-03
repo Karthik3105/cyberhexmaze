@@ -330,15 +330,18 @@ class MainActivity : ComponentActivity() {
                 var isLoaded by remember { mutableStateOf(false) }
                 val maxLevels = remember { androidx.compose.runtime.mutableStateMapOf<GameMode, Int>() }
 
-                val unlockAllLevelsAction: () -> Unit = {
-                    GameMode.values().forEach { mode ->
+                val unlockModeLevelsAction: (GameMode?) -> Unit = { targetMode ->
+                    val modesToUnlock = if (targetMode != null) listOf(targetMode) else GameMode.values().toList()
+                    modesToUnlock.forEach { mode ->
                         maxLevels[mode] = 100
-                    }
-                    scope.launch(Dispatchers.IO) {
-                        GameMode.values().forEach { mode ->
+                        prefsManager.setMaxUnlockedLevel(mode.id, 100)
+                        scope.launch(Dispatchers.IO) {
                             dao.saveGameData(GameData(mode.id, 100))
                         }
                     }
+                    com.example.honeycombmaze.data.CloudSaveManager.saveToCloud(context, prefsManager)
+                    val msg = if (targetMode != null) "🔓 All 100 levels unlocked for ${targetMode.title}!" else "🔓 All levels unlocked!"
+                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
                 }
 
                 val billingManager = remember {
@@ -349,22 +352,28 @@ class MainActivity : ComponentActivity() {
                             com.example.honeycombmaze.data.CloudSaveManager.saveToCloud(context, prefsManager)
                         },
                         onAllLevelsUnlocked = {
-                            unlockAllLevelsAction()
+                            val activeScreen = currentScreen
+                            val modeToUnlock = if (activeScreen is Screen.LevelSelection) activeScreen.mode else null
+                            unlockModeLevelsAction(modeToUnlock)
                         }
                     )
                 }
 
                 LaunchedEffect(Unit) {
                     withContext(Dispatchers.IO) {
-                        if (prefsManager.isAllLevelsUnlocked) {
-                            GameMode.values().forEach { mode ->
+                        GameMode.values().forEach { mode ->
+                            val data = dao.getGameData(mode.id)
+                            val dbLevel = data?.maxUnlockedLevel ?: 1
+                            val prefLevel = prefsManager.getMaxUnlockedLevel(mode.id)
+                            val highest = maxOf(dbLevel, prefLevel)
+                            if (prefsManager.isAllLevelsUnlocked || highest >= 100) {
                                 maxLevels[mode] = 100
                                 dao.saveGameData(GameData(mode.id, 100))
-                            }
-                        } else {
-                            GameMode.values().forEach { mode ->
-                                val data = dao.getGameData(mode.id)
-                                maxLevels[mode] = data?.maxUnlockedLevel ?: 1
+                            } else {
+                                maxLevels[mode] = highest
+                                if (highest > dbLevel) {
+                                    dao.saveGameData(GameData(mode.id, highest))
+                                }
                             }
                         }
                     }
@@ -442,6 +451,7 @@ class MainActivity : ComponentActivity() {
                                             dao.deleteAllLevelData()
                                             GameMode.values().forEach { mode ->
                                                 maxLevels[mode] = 1
+                                                prefsManager.setMaxUnlockedLevel(mode.id, 1, syncCloud = false)
                                                 dao.saveGameData(GameData(mode.id, 1))
                                             }
                                         }
@@ -498,13 +508,30 @@ class MainActivity : ComponentActivity() {
                                         )
                                         Spacer(modifier = Modifier.size(8.dp))
                                         androidx.compose.material3.IconButton(onClick = { showTutorial = true }) {
-                                            androidx.compose.material3.Icon(
-                                                imageVector = androidx.compose.material.icons.Icons.Default.Info,
-                                                contentDescription = "How to Play",
-                                                tint = Color.White
-                                            )
-                                        }
-                                    }
+                                             androidx.compose.material3.Icon(
+                                                 imageVector = androidx.compose.material.icons.Icons.Default.Info,
+                                                 contentDescription = "How to Play",
+                                                 tint = Color.White
+                                             )
+                                         }
+                                     }
+
+                                     if (maxUnlocked < 100) {
+                                         Button(
+                                             onClick = {
+                                                 unlockModeLevelsAction(screen.mode)
+                                                 activity?.let {
+                                                     billingManager.launchPurchaseFlow(it, com.example.honeycombmaze.data.BillingManager.PRODUCT_UNLOCK_ALL_LEVELS)
+                                                 }
+                                             },
+                                             colors = ButtonDefaults.buttonColors(containerColor = NeonYellow),
+                                             modifier = Modifier
+                                                 .fillMaxWidth()
+                                                 .padding(horizontal = 16.dp, vertical = 4.dp)
+                                         ) {
+                                             Text("🔓 UNLOCK ALL 100 LEVELS — ₹250", color = BackgroundDark, fontWeight = FontWeight.Bold)
+                                         }
+                                     }
                                     
                                     LazyVerticalGrid(
                                         columns = GridCells.Fixed(5),

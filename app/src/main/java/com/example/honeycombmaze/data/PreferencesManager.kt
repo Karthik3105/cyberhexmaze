@@ -164,6 +164,18 @@ class PreferencesManager(private val context: Context) {
         prefs.edit().putBoolean("processed_token_$token", true).apply()
     }
 
+    fun getMaxUnlockedLevel(modeId: Int): Int {
+        return prefs.getInt("mode_max_level_$modeId", 1)
+    }
+
+    fun setMaxUnlockedLevel(modeId: Int, maxLevel: Int, syncCloud: Boolean = true) {
+        prefs.edit().putInt("mode_max_level_$modeId", maxLevel).apply()
+        saveInternalBackup(honey)
+        if (syncCloud && hasLoadedFromCloud && !isCloudRestoreInProgress) {
+            CloudSaveManager.saveToCloud(context, this)
+        }
+    }
+
     fun resetAllData() {
         prefs.edit().clear().commit()
         _honeyState.intValue = 0

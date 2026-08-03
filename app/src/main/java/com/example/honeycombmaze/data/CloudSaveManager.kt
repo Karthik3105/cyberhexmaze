@@ -94,6 +94,11 @@ object CloudSaveManager {
                         if (prefsManager.isAvatarUnlocked(av.id)) unlockedAvatarsArray.put(av.id)
                     }
 
+                    val modeLevelsJson = JSONObject()
+                    for (mId in 0..10) {
+                        modeLevelsJson.put(mId.toString(), prefsManager.getMaxUnlockedLevel(mId))
+                    }
+
                     val finalHoney = prefsManager.honey
                     val json = JSONObject().apply {
                         put("honey", finalHoney)
@@ -102,6 +107,7 @@ object CloudSaveManager {
                         put("isAllLevelsUnlocked", prefsManager.isAllLevelsUnlocked)
                         put("unlockedModes", unlockedModesArray)
                         put("unlockedAvatars", unlockedAvatarsArray)
+                        put("modeLevels", modeLevelsJson)
                     }
 
                     snapshot.snapshotContents.writeBytes(json.toString().toByteArray(Charsets.UTF_8))
@@ -175,6 +181,15 @@ object CloudSaveManager {
                                     prefsManager.unlockAvatar(unlockedAvatars.getString(i), syncCloud = false)
                                 }
                             }
+                            val modeLevels = json.optJSONObject("modeLevels")
+                            if (modeLevels != null) {
+                                for (mId in 0..10) {
+                                    val lvl = modeLevels.optInt(mId.toString(), 1)
+                                    if (lvl > 1) {
+                                        prefsManager.setMaxUnlockedLevel(mId, lvl, syncCloud = false)
+                                    }
+                                }
+                            }
 
                             Log.d("CloudSaveManager", "Successfully loaded $cloudHoney coins and unlocked content from Play Games Cloud!")
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
@@ -212,6 +227,10 @@ object CloudSaveManager {
             snapshotsClient.open(SNAPSHOT_NAME, true, SnapshotsClient.RESOLUTION_POLICY_MOST_RECENTLY_MODIFIED)
                 .addOnSuccessListener { dataOrConflict ->
                     val snapshot = dataOrConflict.data ?: return@addOnSuccessListener
+                    val modeLevelsJson = JSONObject()
+                    for (mId in 0..10) {
+                        modeLevelsJson.put(mId.toString(), 1)
+                    }
                     val json = JSONObject().apply {
                         put("honey", 0)
                         put("selectedAvatar", "default")
@@ -219,6 +238,7 @@ object CloudSaveManager {
                         put("isAllLevelsUnlocked", false)
                         put("unlockedModes", org.json.JSONArray())
                         put("unlockedAvatars", org.json.JSONArray())
+                        put("modeLevels", modeLevelsJson)
                     }
                     snapshot.snapshotContents.writeBytes(json.toString().toByteArray(Charsets.UTF_8))
                     val change = SnapshotMetadataChange.Builder()

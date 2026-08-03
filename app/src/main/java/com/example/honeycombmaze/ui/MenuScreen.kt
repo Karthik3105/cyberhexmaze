@@ -132,6 +132,17 @@ fun MainMenuScreen(
                     Button(
                         onClick = {
                             showShopDialog = false
+                            onBuyProduct(com.example.honeycombmaze.data.BillingManager.PRODUCT_UNLOCK_ALL_LEVELS)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("🔓 Unlock All Levels — ₹250", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+
+                    Button(
+                        onClick = {
+                            showShopDialog = false
                             onBuyProduct(com.example.honeycombmaze.data.BillingManager.PRODUCT_REMOVE_ADS)
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = NeonCoral),
