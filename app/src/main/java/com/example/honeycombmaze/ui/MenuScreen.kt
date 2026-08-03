@@ -43,11 +43,43 @@ fun MainMenuScreen(
     prefsManager: com.example.honeycombmaze.data.PreferencesManager,
     totalLevels: Int,
     onModeSelected: (GameMode) -> Unit,
-    onBuyProduct: (String) -> Unit = {}
+    onBuyProduct: (String) -> Unit = {},
+    onResetAllData: () -> Unit = {}
 ) {
     val currentHoney = prefsManager.honey
     var showShopDialog by remember { mutableStateOf(false) }
     var showAvatarDialog by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text("⚠️ Reset All Data?", fontWeight = FontWeight.Bold, color = NeonCoral) },
+            text = {
+                Text(
+                    text = "Are you sure you want to reset all game data? Your coins, unlocked modes, avatars, and level progress will be completely erased.",
+                    color = Color.White
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showResetDialog = false
+                        onResetAllData()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonCoral)
+                ) {
+                    Text("RESET ALL", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text("CANCEL", color = TextSecondary)
+                }
+            },
+            containerColor = CardBackground
+        )
+    }
 
     if (showAvatarDialog) {
         AvatarSelectionDialog(
@@ -59,7 +91,7 @@ fun MainMenuScreen(
     if (showShopDialog) {
         AlertDialog(
             onDismissRequest = { showShopDialog = false },
-            title = { Text("Honey Store", fontWeight = FontWeight.Bold, color = NeonYellow) },
+            title = { Text("Coin Store", fontWeight = FontWeight.Bold, color = NeonYellow) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Select a pack to purchase via Google Play Billing:")
@@ -72,7 +104,7 @@ fun MainMenuScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = NeonYellow),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("🍯 100 Honey Coins — ₹250", color = BackgroundDark, fontWeight = FontWeight.Bold)
+                        Text("🍯 100 Coins — ₹250", color = BackgroundDark, fontWeight = FontWeight.Bold)
                     }
 
                     Button(
@@ -83,7 +115,7 @@ fun MainMenuScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("🍯 500 Honey Coins — ₹1,000", color = BackgroundDark, fontWeight = FontWeight.Bold)
+                        Text("🍯 500 Coins — ₹1,000", color = BackgroundDark, fontWeight = FontWeight.Bold)
                     }
 
                     Button(
@@ -94,7 +126,7 @@ fun MainMenuScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9900FF)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("🍯 1,000 Honey Coins — ₹2,000", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("🍯 1,000 Coins — ₹2,000", color = Color.White, fontWeight = FontWeight.Bold)
                     }
 
                     Button(
@@ -129,7 +161,12 @@ fun MainMenuScreen(
                 .padding(innerPadding)
                 .background(BackgroundDark)
         ) {
-            TopBar(currentHoney, onOpenShop = { showShopDialog = true }, onOpenAvatars = { showAvatarDialog = true })
+            TopBar(
+                honey = currentHoney,
+                onOpenShop = { showShopDialog = true },
+                onOpenAvatars = { showAvatarDialog = true },
+                onOpenReset = { showResetDialog = true }
+            )
             HorizontalDivider(color = CardBorder, thickness = 1.dp)
             
             LazyColumn(
@@ -248,7 +285,12 @@ fun MainMenuScreen(
 }
 
 @Composable
-fun TopBar(honey: Int, onOpenShop: () -> Unit = {}, onOpenAvatars: () -> Unit = {}) {
+fun TopBar(
+    honey: Int,
+    onOpenShop: () -> Unit = {},
+    onOpenAvatars: () -> Unit = {},
+    onOpenReset: () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -256,28 +298,57 @@ fun TopBar(honey: Int, onOpenShop: () -> Unit = {}, onOpenAvatars: () -> Unit = 
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Left Side: AVATARS Button
+        // Left Side: AVATARS & RESET Buttons
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(CardBackground)
-                .clickable { onOpenAvatars() }
-                .padding(horizontal = 12.dp, vertical = 6.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.Face,
-                contentDescription = "Avatars",
-                tint = Color(0xFF00FFCC),
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "AVATARS",
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(CardBackground)
+                    .clickable { onOpenAvatars() }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Face,
+                    contentDescription = "Avatars",
+                    tint = Color(0xFF00FFCC),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "AVATARS",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Reset Data Button right next to Avatars Icon
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(CardBackground)
+                    .clickable { onOpenReset() }
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Reset All Data",
+                    tint = NeonCoral,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "RESET",
+                    color = NeonCoral,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
         // Right Side: Coins Shop Button

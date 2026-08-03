@@ -164,6 +164,22 @@ class PreferencesManager(private val context: Context) {
         prefs.edit().putBoolean("processed_token_$token", true).apply()
     }
 
+    fun resetAllData() {
+        prefs.edit().clear().commit()
+        _honeyState.intValue = 0
+        _selectedAvatarState.value = "default"
+        _isAllLevelsUnlockedState.value = false
+        try {
+            val file = getInternalBackupFile()
+            if (file.exists()) {
+                file.delete()
+            }
+        } catch (e: Exception) {
+            Log.e("PreferencesManager", "Error deleting internal backup: ${e.message}")
+        }
+        CloudSaveManager.resetCloudSave(context, this)
+    }
+
     companion object {
         private const val PREFS_NAME = "HoneycombPrefs"
         private const val KEY_HONEY = "total_honey"
@@ -175,9 +191,9 @@ class PreferencesManager(private val context: Context) {
         
         // Mode unlocking costs
         val MODE_COSTS = mapOf(
-            4 to 200,   // DARKNESS
-            5 to 500,   // ICE_SLIDE
-            6 to 100   // TIME_RUSH
+            4 to 500,   // DARKNESS
+            5 to 1000,   // ICE_SLIDE
+            6 to 2000   // TIME_RUSH
         )
     }
 }

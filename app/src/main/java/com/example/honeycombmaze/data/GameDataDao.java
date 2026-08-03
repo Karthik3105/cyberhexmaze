@@ -17,4 +17,10 @@ public interface GameDataDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void saveLevelData(LevelData levelData);
+
+    @Query("DELETE FROM game_data")
+    void deleteAllGameData();
+
+    @Query("DELETE FROM level_data")
+    void deleteAllLevelData();
 }

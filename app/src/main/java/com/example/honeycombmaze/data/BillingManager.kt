@@ -123,19 +123,19 @@ class BillingManager(
                             prefsManager.honey += 1000
                             onHoneyPurchased(1000)
                             consumePurchase(purchase)
-                            android.widget.Toast.makeText(context, "Success! 1000 Honey Coins Added! 🍯", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(context, "Success! 1000 Coins Added! 🍯", android.widget.Toast.LENGTH_SHORT).show()
                         }
                         PRODUCT_HONEY_500 -> {
                             prefsManager.honey += 500
                             onHoneyPurchased(500)
                             consumePurchase(purchase)
-                            android.widget.Toast.makeText(context, "Success! 500 Honey Coins Added! 🍯", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(context, "Success! 500 Coins Added! 🍯", android.widget.Toast.LENGTH_SHORT).show()
                         }
                         PRODUCT_HONEY_100 -> {
                             prefsManager.honey += 100
                             onHoneyPurchased(100)
                             consumePurchase(purchase)
-                            android.widget.Toast.makeText(context, "Success! 100 Honey Coins Added! 🍯", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(context, "Success! 100 Coins Added! 🍯", android.widget.Toast.LENGTH_SHORT).show()
                         }
                         PRODUCT_REMOVE_ADS -> {
                             prefsManager.isRemoveAdsPurchased = true

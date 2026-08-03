@@ -597,7 +597,7 @@ fun GameScreen(
         )
         
         if (gameState.isWon) {
-            val isLastLevel = gameState.level >= 60
+            val isLastLevel = gameState.level >= 100
             val honeyAwarded = ((gameState.level - 1) / 10) + 1
             var animatedHoney by remember { mutableStateOf(0) }
             
@@ -625,7 +625,7 @@ fun GameScreen(
                 )
                 if (isLastLevel) {
                     Text(
-                        text = "🎉 You completed all 60 levels!",
+                        text = "🎉 All levels done for this mode!",
                         color = Color.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -650,7 +650,7 @@ fun GameScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "+$animatedHoney Honey Coins!",
+                        text = "+$animatedHoney Coins!",
                         color = NeonYellow,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold

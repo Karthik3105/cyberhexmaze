@@ -332,11 +332,11 @@ class MainActivity : ComponentActivity() {
 
                 val unlockAllLevelsAction: () -> Unit = {
                     GameMode.values().forEach { mode ->
-                        maxLevels[mode] = 60
+                        maxLevels[mode] = 100
                     }
                     scope.launch(Dispatchers.IO) {
                         GameMode.values().forEach { mode ->
-                            dao.saveGameData(GameData(mode.id, 60))
+                            dao.saveGameData(GameData(mode.id, 100))
                         }
                     }
                 }
@@ -358,8 +358,8 @@ class MainActivity : ComponentActivity() {
                     withContext(Dispatchers.IO) {
                         if (prefsManager.isAllLevelsUnlocked) {
                             GameMode.values().forEach { mode ->
-                                maxLevels[mode] = 60
-                                dao.saveGameData(GameData(mode.id, 60))
+                                maxLevels[mode] = 100
+                                dao.saveGameData(GameData(mode.id, 100))
                             }
                         } else {
                             GameMode.values().forEach { mode ->
@@ -434,6 +434,18 @@ class MainActivity : ComponentActivity() {
                                         activity?.let {
                                             billingManager.launchPurchaseFlow(it, productId)
                                         }
+                                    },
+                                    onResetAllData = {
+                                        prefsManager.resetAllData()
+                                        scope.launch(Dispatchers.IO) {
+                                            dao.deleteAllGameData()
+                                            dao.deleteAllLevelData()
+                                            GameMode.values().forEach { mode ->
+                                                maxLevels[mode] = 1
+                                                dao.saveGameData(GameData(mode.id, 1))
+                                            }
+                                        }
+                                        android.widget.Toast.makeText(context, "🗑️ All game data and Cloud Save erased!", android.widget.Toast.LENGTH_LONG).show()
                                     }
                                 )
                             }
@@ -442,7 +454,7 @@ class MainActivity : ComponentActivity() {
                                     currentScreen = Screen.Menu
                                 }
                                 val isAllUnlocked = prefsManager.isAllLevelsUnlocked
-                                val maxUnlocked = if (isAllUnlocked) 60 else (maxLevels[screen.mode] ?: 1)
+                                val maxUnlocked = if (isAllUnlocked) 100 else (maxLevels[screen.mode] ?: 1)
                                 val title = screen.mode.title
                                 
                                 var showTutorial by remember { mutableStateOf(false) }
@@ -498,7 +510,7 @@ class MainActivity : ComponentActivity() {
                                         columns = GridCells.Fixed(5),
                                         modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)
                                     ) {
-                                        items(60) { index ->
+                                        items(100) { index ->
                                             val levelNumber = index + 1
                                             val isUnlocked = levelNumber <= maxUnlocked
                                             
@@ -548,11 +560,13 @@ class MainActivity : ComponentActivity() {
                                      gameState = gameState,
                                      prefsManager = prefsManager,
                                      onNextLevel = {
-                                         if (gameState.level >= 60) {
+                                         if (gameState.level >= 100) {
                                              currentScreen = Screen.LevelSelection(mode = gameState.gameMode)
                                          } else {
-                                             // Show ad after level 10, then every 5 levels (10, 15, 20, 25...)
-                                             val shouldShowAd = !prefsManager.isRemoveAdsPurchased && gameState.level >= 10 && gameState.level % 5 == 0
+                                             // Show ad after every 5 minutes (300,000 ms) of app usage
+                                             val FIVE_MINUTES_MS = 5 * 60 * 1000L
+                                             val timeSinceLastAd = System.currentTimeMillis() - lastAdTime
+                                             val shouldShowAd = !prefsManager.isRemoveAdsPurchased && (timeSinceLastAd >= FIVE_MINUTES_MS)
                                              if (shouldShowAd) {
                                                  showAdWithSafetyTimeout(prefsManager) {
                                                      gameState.nextLevel()

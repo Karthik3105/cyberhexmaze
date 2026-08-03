@@ -335,7 +335,7 @@ class GameState {
     }
     
     fun nextLevel() {
-        if (level < 60) {
+        if (level < 100) {
             level++
             startNewGame()
         }

@@ -204,4 +204,33 @@ object CloudSaveManager {
             onComplete?.invoke(false)
         }
     }
+
+    fun resetCloudSave(context: Context, prefsManager: PreferencesManager) {
+        val activity = context.findActivity() ?: return
+        try {
+            val snapshotsClient = PlayGames.getSnapshotsClient(activity)
+            snapshotsClient.open(SNAPSHOT_NAME, true, SnapshotsClient.RESOLUTION_POLICY_MOST_RECENTLY_MODIFIED)
+                .addOnSuccessListener { dataOrConflict ->
+                    val snapshot = dataOrConflict.data ?: return@addOnSuccessListener
+                    val json = JSONObject().apply {
+                        put("honey", 0)
+                        put("selectedAvatar", "default")
+                        put("isRemoveAdsPurchased", false)
+                        put("isAllLevelsUnlocked", false)
+                        put("unlockedModes", org.json.JSONArray())
+                        put("unlockedAvatars", org.json.JSONArray())
+                    }
+                    snapshot.snapshotContents.writeBytes(json.toString().toByteArray(Charsets.UTF_8))
+                    val change = SnapshotMetadataChange.Builder()
+                        .setDescription("HoneyCombMaze Save - Reset Data")
+                        .build()
+                    snapshotsClient.commitAndClose(snapshot, change)
+                        .addOnSuccessListener {
+                            Log.d("CloudSaveManager", "Cloud Save erased successfully!")
+                        }
+                }
+        } catch (e: Exception) {
+            Log.e("CloudSaveManager", "Exception resetting cloud save: ${e.message}")
+        }
+    }
 }
