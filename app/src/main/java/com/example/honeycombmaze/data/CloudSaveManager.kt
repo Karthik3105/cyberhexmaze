@@ -20,7 +20,7 @@ fun Context.findActivity(): Activity? {
 }
 
 object CloudSaveManager {
-    private const val SNAPSHOT_NAME = "HoneyCombMazeCloudSave"
+    private const val SNAPSHOT_NAME = "HoneyMazeSaveV2"
 
     fun openAccountPicker(context: Context) {
         val activity = context.findActivity() ?: return
@@ -54,23 +54,17 @@ object CloudSaveManager {
             val gamesSignInClient = PlayGames.getGamesSignInClient(activity)
             gamesSignInClient.signIn().addOnCompleteListener { signInTask ->
                 if (signInTask.isSuccessful && signInTask.result.isAuthenticated) {
-                    Log.d("CloudSaveManager", "Play Games sign in successful!")
                     onSignedIn?.invoke()
                 } else {
                     gamesSignInClient.isAuthenticated().addOnCompleteListener { isAuthenticatedTask ->
                         val isAuthenticated = isAuthenticatedTask.isSuccessful && isAuthenticatedTask.result.isAuthenticated
                         if (isAuthenticated) {
-                            Log.d("CloudSaveManager", "User authenticated with Play Games Services!")
                             onSignedIn?.invoke()
-                        } else {
-                            Log.w("CloudSaveManager", "Play Games sign in not completed.")
                         }
                     }
                 }
             }
-        } catch (e: Exception) {
-            Log.e("CloudSaveManager", "Exception in initializeAndSignIn: ${e.message}")
-        }
+        } catch (_: Exception) {}
     }
 
     fun saveToCloud(context: Context, prefsManager: PreferencesManager) {
@@ -168,9 +162,6 @@ object CloudSaveManager {
                             if (selectedAvatar.isNotEmpty()) {
                                 prefsManager.selectedAvatar = selectedAvatar
                             }
-                            if (isAllLevelsUnlocked) {
-                                prefsManager.isAllLevelsUnlocked = true
-                            }
 
                             val unlockedModes = json.optJSONArray("unlockedModes")
                             if (unlockedModes != null) {
@@ -202,10 +193,6 @@ object CloudSaveManager {
                                 }
                             }
 
-                            Log.d("CloudSaveManager", "Successfully loaded $cloudHoney coins and unlocked content from Play Games Cloud!")
-                            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                android.widget.Toast.makeText(context, "☁️ Cloud Save Restored: $cloudHoney Coins!", android.widget.Toast.LENGTH_LONG).show()
-                            }
                             onComplete?.invoke(true)
                         } else {
                             onComplete?.invoke(false)
@@ -249,6 +236,7 @@ object CloudSaveManager {
                         put("isAllLevelsUnlocked", false)
                         put("unlockedModes", org.json.JSONArray())
                         put("unlockedAvatars", org.json.JSONArray())
+                        put("unlockedModeLevels", org.json.JSONArray())
                         put("modeLevels", modeLevelsJson)
                     }
                     snapshot.snapshotContents.writeBytes(json.toString().toByteArray(Charsets.UTF_8))

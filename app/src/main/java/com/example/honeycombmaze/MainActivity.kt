@@ -92,12 +92,10 @@ class MainActivity : ComponentActivity() {
                 isAdLoading = false
                 ad.setImmersiveMode(true)
                 mInterstitialAd = ad
-                android.util.Log.d("AdMob", "Interstitial Ad with top X close button loaded successfully!")
             }
             override fun onAdFailedToLoad(adError: LoadAdError) {
                 isAdLoading = false
                 mInterstitialAd = null
-                android.util.Log.e("AdMob", "Ad failed to load: ${adError.message}. Retrying in 5s...")
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                     loadInterstitialAd()
                 }, 5000)
@@ -126,9 +124,7 @@ class MainActivity : ComponentActivity() {
             isAdShowing = false
             
             mInterstitialAd = null
-            if (wasAdShown) {
-                lastAdTime = System.currentTimeMillis()
-            }
+            lastAdTime = System.currentTimeMillis()
             loadInterstitialAd()
             
             handler.post {
@@ -149,13 +145,11 @@ class MainActivity : ComponentActivity() {
             override fun onAdShowedFullScreenContent() {
                 lastAdTime = System.currentTimeMillis()
                 adStartTime = System.currentTimeMillis()
-                android.util.Log.d("AdMob", "Interstitial Ad displayed on screen.")
             }
 
             override fun onAdDismissedFullScreenContent() {
                 val duration = System.currentTimeMillis() - adStartTime
                 val FULL_AD_THRESHOLD_MS = 14000L // 14s threshold for watching full ad
-                android.util.Log.d("AdMob", "Ad closed by user after ${duration / 1000}s.")
 
                 if (duration >= FULL_AD_THRESHOLD_MS) {
                     prefsManager.honey += 3
@@ -163,21 +157,12 @@ class MainActivity : ComponentActivity() {
                     this@MainActivity.runOnUiThread {
                         onFullAdWatched?.invoke()
                     }
-                } else {
-                    this@MainActivity.runOnUiThread {
-                        android.widget.Toast.makeText(
-                            this@MainActivity,
-                            "⚠️ Ad was closed early. Watch the full ad to earn 3 Coins!",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
                 }
 
                 handler.post { safeComplete(wasAdShown = true) }
             }
 
             override fun onAdFailedToShowFullScreenContent(e: AdError) {
-                android.util.Log.e("AdMob", "Ad failed to show: ${e.message}")
                 handler.post { safeComplete(wasAdShown = false) }
             }
         }
@@ -186,7 +171,6 @@ class MainActivity : ComponentActivity() {
             try {
                 currentAd.show(this@MainActivity)
             } catch (e: Exception) {
-                android.util.Log.e("AdMob", "Exception showing ad: ${e.message}")
                 safeComplete(wasAdShown = false)
             }
         }
@@ -320,6 +304,7 @@ class MainActivity : ComponentActivity() {
                         loadInterstitialAd()
                         onProceed()
                     } else {
+                        lastAdTime = System.currentTimeMillis()
                         pendingAdPromptAction = onProceed
                         showAdPromptDialog = true
                     }
@@ -328,6 +313,7 @@ class MainActivity : ComponentActivity() {
                 if (showAdPromptDialog) {
                     AlertDialog(
                         onDismissRequest = {
+                            lastAdTime = System.currentTimeMillis()
                             showAdPromptDialog = false
                             val action = pendingAdPromptAction
                             pendingAdPromptAction = null
@@ -350,6 +336,7 @@ class MainActivity : ComponentActivity() {
                         confirmButton = {
                             Button(
                                 onClick = {
+                                    lastAdTime = System.currentTimeMillis()
                                     showAdPromptDialog = false
                                     val action = pendingAdPromptAction
                                     pendingAdPromptAction = null
@@ -371,6 +358,7 @@ class MainActivity : ComponentActivity() {
                         dismissButton = {
                             TextButton(
                                 onClick = {
+                                    lastAdTime = System.currentTimeMillis()
                                     showAdPromptDialog = false
                                     val action = pendingAdPromptAction
                                     pendingAdPromptAction = null
@@ -484,7 +472,6 @@ class MainActivity : ComponentActivity() {
                         }
                         com.example.honeycombmaze.data.CloudSaveManager.saveToCloud(context, prefsManager)
                         refreshMaxLevels()
-                        android.widget.Toast.makeText(context, "🔓 All 100 levels unlocked for ${modeToUnlock.title}!", android.widget.Toast.LENGTH_LONG).show()
                     }
                 }
 
@@ -592,7 +579,6 @@ class MainActivity : ComponentActivity() {
                                                 dao.saveGameData(GameData(mode.id, 1))
                                             }
                                         }
-                                        android.widget.Toast.makeText(context, "🗑️ All game data reset! Purchases cancelled.", android.widget.Toast.LENGTH_LONG).show()
                                     }
                                 )
                             }
@@ -600,8 +586,8 @@ class MainActivity : ComponentActivity() {
                                 BackHandler {
                                     currentScreen = Screen.Menu
                                 }
-                                val isAllUnlocked = prefsManager.isAllLevelsUnlocked
-                                val maxUnlocked = if (isAllUnlocked) 100 else (maxLevels[screen.mode] ?: 1)
+                                val isThisModeUnlocked = prefsManager.isModeLevelsUnlocked(screen.mode.id)
+                                val maxUnlocked = if (isThisModeUnlocked) 100 else (maxLevels[screen.mode] ?: 1)
                                 val title = screen.mode.title
                                 
                                 var showTutorial by remember { mutableStateOf(false) }
@@ -737,7 +723,6 @@ class MainActivity : ComponentActivity() {
                                             val timeSinceLastAd = System.currentTimeMillis() - lastAdTime
                                             val isRemoveAds = prefsManager.isRemoveAdsPurchased
                                             val shouldShowAd = !isRemoveAds && (timeSinceLastAd >= ONE_MINUTE_MS)
-                                            android.util.Log.d("AdMob", "onNextLevel -> timeSinceLastAd=${timeSinceLastAd/1000}s, isRemoveAds=$isRemoveAds, shouldShowAd=$shouldShowAd")
                                             if (shouldShowAd) {
                                                 triggerAdWithPrompt {
                                                     gameState.nextLevel()
@@ -763,7 +748,6 @@ class MainActivity : ComponentActivity() {
             com.example.honeycombmaze.data.CloudSaveManager.loadFromCloud(this, prefs)
         }
         if (isAdShowing) {
-            android.util.Log.w("AdMob", "App resumed while ad was active. Clearing ad state.")
             isAdShowing = false
             mInterstitialAd = null
             loadInterstitialAd()

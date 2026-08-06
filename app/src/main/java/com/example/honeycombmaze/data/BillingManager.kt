@@ -29,18 +29,13 @@ class BillingManager(
             override fun onBillingSetupFinished(billingResult: BillingResult) {
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
                     isConnected = true
-                    Log.d("BillingManager", "Billing setup successful.")
                     queryPurchases()
-                    queryPurchaseHistory()
                     onSuccess?.invoke()
-                } else {
-                    Log.e("BillingManager", "Billing setup failed: ${billingResult.debugMessage}")
                 }
             }
 
             override fun onBillingServiceDisconnected() {
                 isConnected = false
-                Log.w("BillingManager", "Billing service disconnected. Will retry on next purchase.")
             }
         })
     }
@@ -85,11 +80,6 @@ class BillingManager(
                     .build()
 
                 billingClient.launchBillingFlow(activity, flowParams)
-            } else {
-                Log.e("BillingManager", "Failed to query product details: ${billingResult.debugMessage}")
-                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                    android.widget.Toast.makeText(context, "Product not available in Play Console yet", android.widget.Toast.LENGTH_SHORT).show()
-                }
             }
         }
     }
@@ -100,16 +90,7 @@ class BillingManager(
                 handlePurchase(purchase)
             }
         } else if (billingResult.responseCode == BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED) {
-            Log.d("BillingManager", "Item already owned. Consuming purchase token so user can purchase again...")
-            consumeUnlockAllLevels {
-                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                    android.widget.Toast.makeText(context, "Purchase reset on Google Play! Please tap UNLOCK ALL LEVELS to purchase.", android.widget.Toast.LENGTH_LONG).show()
-                }
-            }
-        } else if (billingResult.responseCode == BillingClient.BillingResponseCode.USER_CANCELED) {
-            Log.d("BillingManager", "User canceled the purchase.")
-        } else {
-            Log.e("BillingManager", "Purchase failed with code: ${billingResult.responseCode}")
+            consumeUnlockAllLevels {}
         }
     }
 
@@ -124,31 +105,26 @@ class BillingManager(
                         onModeLevelsUnlocked(mode)
                         consumePurchase(purchase)
                         acknowledgePurchase(purchase)
-                        android.widget.Toast.makeText(context, "Success! All 100 Levels Unlocked for ${mode.title}! 🔓🎉", android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         when (productId) {
                             PRODUCT_HONEY_1000 -> {
                                 prefsManager.honey += 1000
                                 onHoneyPurchased(1000)
                                 consumePurchase(purchase)
-                                android.widget.Toast.makeText(context, "Success! 1000 Coins Added! 🍯", android.widget.Toast.LENGTH_SHORT).show()
                             }
                             PRODUCT_HONEY_500 -> {
                                 prefsManager.honey += 500
                                 onHoneyPurchased(500)
                                 consumePurchase(purchase)
-                                android.widget.Toast.makeText(context, "Success! 500 Coins Added! 🍯", android.widget.Toast.LENGTH_SHORT).show()
                             }
                             PRODUCT_HONEY_100 -> {
                                 prefsManager.honey += 100
                                 onHoneyPurchased(100)
                                 consumePurchase(purchase)
-                                android.widget.Toast.makeText(context, "Success! 100 Coins Added! 🍯", android.widget.Toast.LENGTH_SHORT).show()
                             }
                             PRODUCT_REMOVE_ADS -> {
                                 prefsManager.isRemoveAdsPurchased = true
                                 acknowledgePurchase(purchase)
-                                android.widget.Toast.makeText(context, "Success! Ads Removed! 🚫", android.widget.Toast.LENGTH_SHORT).show()
                             }
                             else -> {
                                 acknowledgePurchase(purchase)
@@ -164,11 +140,7 @@ class BillingManager(
         val consumeParams = ConsumeParams.newBuilder()
             .setPurchaseToken(purchase.purchaseToken)
             .build()
-        billingClient.consumeAsync(consumeParams) { billingResult, _ ->
-            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                Log.d("BillingManager", "Purchase consumed successfully.")
-            }
-        }
+        billingClient.consumeAsync(consumeParams) { _, _ -> }
     }
 
     private fun acknowledgePurchase(purchase: Purchase) {
@@ -176,11 +148,7 @@ class BillingManager(
             val acknowledgePurchaseParams = AcknowledgePurchaseParams.newBuilder()
                 .setPurchaseToken(purchase.purchaseToken)
                 .build()
-            billingClient.acknowledgePurchase(acknowledgePurchaseParams) { billingResult ->
-                if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                    Log.d("BillingManager", "Purchase acknowledged successfully.")
-                }
-            }
+            billingClient.acknowledgePurchase(acknowledgePurchaseParams) { _ -> }
         }
     }
 
@@ -214,26 +182,7 @@ class BillingManager(
      * Restore historical coin purchases across reinstalls or new devices using Google Play Purchase History!
      */
     fun queryPurchaseHistory() {
-        val params = QueryPurchaseHistoryParams.newBuilder()
-            .setProductType(BillingClient.ProductType.INAPP)
-            .build()
-
-        billingClient.queryPurchaseHistoryAsync(params) { billingResult, historyList ->
-            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && historyList != null) {
-                for (record in historyList) {
-                    for (productId in record.products) {
-                        if (productId != PRODUCT_REMOVE_ADS) {
-                            val mode = getModeForProductId(productId)
-                            if (mode != null) {
-                                prefsManager.setModeLevelsUnlocked(mode.id, true)
-                                onModeLevelsUnlocked(mode)
-                                prefsManager.markPurchaseTokenProcessed(record.purchaseToken)
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        // No-op: do not restore unlocked modes from historical consumed test purchases
     }
 
     fun consumeUnlockAllLevels(onComplete: (() -> Unit)? = null) {

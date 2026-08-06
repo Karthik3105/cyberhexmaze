@@ -36,10 +36,28 @@ class PreferencesManager(private val context: Context) {
                         prefs.edit().putBoolean("avatar_unlocked_$avId", true).apply()
                     }
                 }
+                val unlockedModeLevels = json.optJSONArray("unlockedModeLevels")
+                if (unlockedModeLevels != null) {
+                    for (i in 0 until unlockedModeLevels.length()) {
+                        val mId = unlockedModeLevels.getInt(i)
+                        prefs.edit().putBoolean("mode_levels_unlocked_$mId", true).apply()
+                        prefs.edit().putInt("mode_max_level_$mId", 100).apply()
+                    }
+                }
+                val modeLevels = json.optJSONObject("modeLevels")
+                if (modeLevels != null) {
+                    for (mId in 0..10) {
+                        val lvl = modeLevels.optInt(mId.toString(), 1)
+                        if (lvl > 1) {
+                            val currentLvl = prefs.getInt("mode_max_level_$mId", 1)
+                            if (lvl > currentLvl) {
+                                prefs.edit().putInt("mode_max_level_$mId", lvl).apply()
+                            }
+                        }
+                    }
+                }
             }
-        } catch (e: Exception) {
-            Log.e("PreferencesManager", "Error reading internal backup: ${e.message}")
-        }
+        } catch (_: Exception) {}
         return maxOf(prefsHoney, backupHoney)
     }
 
@@ -53,19 +71,27 @@ class PreferencesManager(private val context: Context) {
             for (av in com.example.honeycombmaze.data.AvatarRegistry.AVATARS) {
                 if (isAvatarUnlocked(av.id)) unlockedAvatarsArray.put(av.id)
             }
+            val unlockedModeLevelsArray = org.json.JSONArray()
+            for (mId in 0..10) {
+                if (isModeLevelsUnlocked(mId)) unlockedModeLevelsArray.put(mId)
+            }
+            val modeLevelsJson = JSONObject()
+            for (mId in 0..10) {
+                modeLevelsJson.put(mId.toString(), getMaxUnlockedLevel(mId))
+            }
 
             val json = JSONObject().apply {
                 put("honey", honeyValue)
                 put("selectedAvatar", selectedAvatar)
                 put("isRemoveAdsPurchased", isRemoveAdsPurchased)
-                put("isAllLevelsUnlocked", isAllLevelsUnlocked)
+                put("isAllLevelsUnlocked", false)
                 put("unlockedModes", unlockedModesArray)
                 put("unlockedAvatars", unlockedAvatarsArray)
+                put("unlockedModeLevels", unlockedModeLevelsArray)
+                put("modeLevels", modeLevelsJson)
             }
             getInternalBackupFile().writeText(json.toString(), Charsets.UTF_8)
-        } catch (e: Exception) {
-            Log.e("PreferencesManager", "Error writing internal backup: ${e.message}")
-        }
+        } catch (_: Exception) {}
     }
 
     private var _honeyState = mutableIntStateOf(initHoney())
@@ -101,16 +127,9 @@ class PreferencesManager(private val context: Context) {
             CloudSaveManager.saveToCloud(context, this)
         }
 
-    private var _isAllLevelsUnlockedState = androidx.compose.runtime.mutableStateOf(prefs.getBoolean(KEY_ALL_LEVELS_UNLOCKED, false))
-
     var isAllLevelsUnlocked: Boolean
-        get() = _isAllLevelsUnlockedState.value
-        set(value) {
-            _isAllLevelsUnlockedState.value = value
-            prefs.edit().putBoolean(KEY_ALL_LEVELS_UNLOCKED, value).apply()
-            saveInternalBackup(honey)
-            CloudSaveManager.saveToCloud(context, this)
-        }
+        get() = false
+        set(_) {}
 
     private var _selectedAvatarState = androidx.compose.runtime.mutableStateOf(prefs.getString(KEY_SELECTED_AVATAR, "default") ?: "default")
 
@@ -199,7 +218,6 @@ class PreferencesManager(private val context: Context) {
         prefs.edit().clear().commit()
         _honeyState.intValue = 0
         _selectedAvatarState.value = "default"
-        _isAllLevelsUnlockedState.value = false
         try {
             val file = getInternalBackupFile()
             if (file.exists()) {
