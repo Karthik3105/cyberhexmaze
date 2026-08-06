@@ -12,17 +12,18 @@ data class PlayerAvatar(
 
 object AvatarRegistry {
     val AVATARS = listOf(
+        
         PlayerAvatar("default", "DEFAULT", "🔵", 0, Color(0xFF5B8DEF)),
-        PlayerAvatar("zombie", "Zombie", "🧟", 5),
-        PlayerAvatar("frog", "Frog", "🐸", 10),
+        PlayerAvatar("moon", "Full Moon", "🌝", 5),
+        PlayerAvatar("thinking", "Thinking", "🤔", 10),
         PlayerAvatar("robot", "Robot", "🤖", 15),
         PlayerAvatar("clown", "Clown", "🤡", 20),
-        PlayerAvatar("thinking", "Thinking", "🤔", 25),
+        PlayerAvatar("zombie", "Zombie", "🧟", 25),
         PlayerAvatar("imp", "Devil Imp", "😈", 30),
         PlayerAvatar("unicorn", "Unicorn", "🦄", 35),
         PlayerAvatar("pig", "Pig", "🐷", 40),
-        PlayerAvatar("alien", "Alien", "👽", 45),
-        PlayerAvatar("moon", "Full Moon", "🌝", 50),
+        PlayerAvatar("alien", "Alien", "👽", 45),         
+        PlayerAvatar("frog", "Frog", "🐸", 50),
         PlayerAvatar("ghost", "Ghost", "👻", 55),
         PlayerAvatar("santa", "Santa", "🎅", 60),
         PlayerAvatar("invader", "Invader", "👾", 65),

@@ -37,6 +37,9 @@ class GameState {
     var timeRemaining by mutableStateOf(0)
     var timeBonusOrbs by mutableStateOf<Set<HexCoord>>(emptySet())
 
+    var gridCols by mutableStateOf(5)
+    var gridRows by mutableStateOf(7)
+
     private val mazeGenerator = MazeGenerator()
 
     init {
@@ -44,16 +47,20 @@ class GameState {
     }
 
     fun startNewGame() {
-        // Radius scales slowly: L1-2: r=2, L3-5: r=3, L6-8: r=4, L9-11: r=5... maxes out around 18 for L50
-        radius = 2 + ((level - 1) / 3) 
-        grid = mazeGenerator.generateMaze(radius, gameMode)
+        val colsBase = 5 + ((level - 1) * 16 / 99)
+        gridCols = if (colsBase % 2 == 0) colsBase + 1 else colsBase
+        val rowsBase = ((gridCols * 1.38f).toInt())
+        gridRows = if (rowsBase % 2 == 0) rowsBase + 1 else rowsBase
+        radius = gridCols / 2
+
+        grid = mazeGenerator.generateMaze(gridCols, gridRows, gameMode)
         
         // Pick any random cell for the start position
         val allCells = grid.keys.toList()
         playerPos = allCells.randomOrNull() ?: HexCoord(0, 0)
         
         // Target distance starts small for early levels, and caps at a reasonable distance for the maze size
-        val targetDistance = min(level, (radius * 1.5).toInt())
+        val targetDistance = min(level, (gridCols * 1.2).toInt())
         
         // Filter cells that meet the target distance requirement
         val possibleGoals = allCells.filter { it != playerPos && hexDistance(it, playerPos) >= targetDistance }
@@ -62,7 +69,7 @@ class GameState {
             var validGoalFound = false
             while (attempts < 15 && !validGoalFound) {
                 if (attempts > 0) {
-                    grid = mazeGenerator.generateMaze(radius, gameMode)
+                    grid = mazeGenerator.generateMaze(gridCols, gridRows, gameMode)
                 }
                 val validIceGoals = allCells.filter { cell ->
                     cell != playerPos && hexDistance(cell, playerPos) >= targetDistance && hasIceSlidePath(playerPos, cell, grid)
@@ -106,11 +113,10 @@ class GameState {
         }
         
         // Spawn more enemies as the level goes up, starting far from the player
-        val edgeCells = allCells.filter { 
-            kotlin.math.abs(it.q) == radius || kotlin.math.abs(it.r) == radius || kotlin.math.abs(it.q + it.r) == radius
-        }
+        val isBorderCell = { coord: HexCoord -> (0..5).any { dir -> !grid.containsKey(coord.getNeighbor(dir)) } }
+        val edgeCells = allCells.filter(isBorderCell)
         val possibleEnemySpawns = edgeCells.filter { 
-            it != playerPos && it != goalPos && hexDistance(it, playerPos) >= radius / 2
+            it != playerPos && it != goalPos && hexDistance(it, playerPos) >= gridCols / 2
         }.shuffled()
         
         // Chasers scale up slowly: 1 for L1-4, 2 for L5-9, etc., up to 5 max

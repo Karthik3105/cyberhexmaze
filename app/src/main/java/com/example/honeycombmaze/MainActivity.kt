@@ -6,10 +6,12 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -60,9 +63,8 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
-import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd
-import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback
-import com.google.android.gms.ads.OnUserEarnedRewardListener
+import com.google.android.gms.ads.interstitial.InterstitialAd
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -75,133 +77,118 @@ sealed class Screen {
 }
 
 class MainActivity : ComponentActivity() {
-    private var mRewardedInterstitialAd: RewardedInterstitialAd? = null
+    private var mInterstitialAd: InterstitialAd? = null
     private var isAdLoading = false
     private var lastAdTime: Long = 0
 
-    private fun loadRewardedInterstitialAd() {
-        if (mRewardedInterstitialAd != null || isAdLoading) return
+    private fun loadInterstitialAd() {
+        if (mInterstitialAd != null || isAdLoading) return
         isAdLoading = true
         val adRequest = AdRequest.Builder().build()
-        val adUnitId = "ca-app-pub-5055629303728798/5589672908"
-        RewardedInterstitialAd.load(this, adUnitId, adRequest, object : RewardedInterstitialAdLoadCallback() {
-            override fun onAdLoaded(ad: RewardedInterstitialAd) {
+        // Standard Interstitial Ad Unit ID with top 'X' close button!
+        val adUnitId = "ca-app-pub-5055629303728798/2664966984"
+        InterstitialAd.load(this, adUnitId, adRequest, object : InterstitialAdLoadCallback() {
+            override fun onAdLoaded(ad: InterstitialAd) {
                 isAdLoading = false
                 ad.setImmersiveMode(true)
-                mRewardedInterstitialAd = ad
-                android.util.Log.d("AdMob", "Rewarded Interstitial Ad loaded successfully!")
+                mInterstitialAd = ad
+                android.util.Log.d("AdMob", "Interstitial Ad with top X close button loaded successfully!")
             }
             override fun onAdFailedToLoad(adError: LoadAdError) {
                 isAdLoading = false
-                mRewardedInterstitialAd = null
+                mInterstitialAd = null
                 android.util.Log.e("AdMob", "Ad failed to load: ${adError.message}. Retrying in 5s...")
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    loadRewardedInterstitialAd()
+                    loadInterstitialAd()
                 }, 5000)
             }
         })
     }
 
     private var isAdShowing = false
-    private val adTimeoutHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private var adTimeoutRunnable: Runnable? = null
 
-    private fun showAdWithSafetyTimeout(prefsManager: com.example.honeycombmaze.data.PreferencesManager, onComplete: () -> Unit) {
+    private fun showAdWithSafetyTimeout(
+        prefsManager: com.example.honeycombmaze.data.PreferencesManager,
+        onFullAdWatched: (() -> Unit)? = null,
+        onComplete: () -> Unit
+    ) {
         if (isAdShowing) {
             onComplete()
             return
         }
 
-        fun proceedWithShow(ad: RewardedInterstitialAd) {
-            isAdShowing = true
-            var hasHandledCompletion = false
-            var userEarnedReward = false
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        var hasHandledCompletion = false
 
-            fun safeComplete() {
-                if (hasHandledCompletion) return
-                hasHandledCompletion = true
-                isAdShowing = false
-                
-                adTimeoutRunnable?.let { adTimeoutHandler.removeCallbacks(it) }
-                adTimeoutRunnable = null
-                
-                mRewardedInterstitialAd = null
+        fun safeComplete(wasAdShown: Boolean) {
+            if (hasHandledCompletion) return
+            hasHandledCompletion = true
+            isAdShowing = false
+            
+            mInterstitialAd = null
+            if (wasAdShown) {
                 lastAdTime = System.currentTimeMillis()
-                loadRewardedInterstitialAd()
-                
-                if (userEarnedReward) {
-                    prefsManager.honey += 3 // Rewarded ONLY if full ad watched / reward earned!
-                    com.example.honeycombmaze.game.SoundManager.playHoneyCollectSound()
-                }
+            }
+            loadInterstitialAd()
+            
+            handler.post {
                 onComplete()
-            }
-
-            ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-                override fun onAdShowedFullScreenContent() {
-                    // Video ad has opened and is playing on screen!
-                    // Cancel short load watchdog timer so full 20-30s video ad can finish naturally!
-                    adTimeoutRunnable?.let { adTimeoutHandler.removeCallbacks(it) }
-                    
-                    // Set long fallback safety timer (45 seconds max)
-                    val longWatchdog = Runnable {
-                        android.util.Log.w("AdMob", "Long ad watchdog timeout triggered.")
-                        safeComplete()
-                    }
-                    adTimeoutRunnable = longWatchdog
-                    adTimeoutHandler.postDelayed(longWatchdog, 45000)
-                }
-
-                override fun onAdDismissedFullScreenContent() {
-                    safeComplete()
-                }
-
-                override fun onAdFailedToShowFullScreenContent(e: AdError) {
-                    android.util.Log.e("AdMob", "Ad failed to show: ${e.message}")
-                    safeComplete()
-                }
-            }
-
-            // Safety Watchdog Timer (6 Seconds Max)
-            val watchdog = Runnable {
-                android.util.Log.w("AdMob", "Ad watchdog timeout triggered. Force resuming game.")
-                safeComplete()
-            }
-            adTimeoutRunnable = watchdog
-            adTimeoutHandler.postDelayed(watchdog, 6000)
-
-            this@MainActivity.runOnUiThread {
-                try {
-                    ad.show(this@MainActivity, OnUserEarnedRewardListener { rewardItem ->
-                        userEarnedReward = true
-                    })
-                } catch (e: Exception) {
-                    android.util.Log.e("AdMob", "Exception showing ad: ${e.message}")
-                    safeComplete()
-                }
             }
         }
 
-        val currentAd = mRewardedInterstitialAd
-        if (currentAd != null) {
-            proceedWithShow(currentAd)
-        } else {
-            loadRewardedInterstitialAd()
-            val checkHandler = android.os.Handler(android.os.Looper.getMainLooper())
-            var checkCount = 0
-            val checkRunnable = object : Runnable {
-                override fun run() {
-                    val loadedAd = mRewardedInterstitialAd
-                    if (loadedAd != null) {
-                        proceedWithShow(loadedAd)
-                    } else if (checkCount < 10) { // Check every 250ms for 2.5s
-                        checkCount++
-                        checkHandler.postDelayed(this, 250)
-                    } else {
-                        onComplete()
+        val currentAd = mInterstitialAd
+        if (currentAd == null) {
+            safeComplete(wasAdShown = false)
+            return
+        }
+
+        isAdShowing = true
+        var adStartTime = 0L
+
+        currentAd.fullScreenContentCallback = object : FullScreenContentCallback() {
+            override fun onAdShowedFullScreenContent() {
+                lastAdTime = System.currentTimeMillis()
+                adStartTime = System.currentTimeMillis()
+                android.util.Log.d("AdMob", "Interstitial Ad displayed on screen.")
+            }
+
+            override fun onAdDismissedFullScreenContent() {
+                val duration = System.currentTimeMillis() - adStartTime
+                val FULL_AD_THRESHOLD_MS = 14000L // 14s threshold for watching full ad
+                android.util.Log.d("AdMob", "Ad closed by user after ${duration / 1000}s.")
+
+                if (duration >= FULL_AD_THRESHOLD_MS) {
+                    prefsManager.honey += 3
+                    com.example.honeycombmaze.data.CloudSaveManager.saveToCloud(this@MainActivity, prefsManager)
+                    this@MainActivity.runOnUiThread {
+                        onFullAdWatched?.invoke()
+                    }
+                } else {
+                    this@MainActivity.runOnUiThread {
+                        android.widget.Toast.makeText(
+                            this@MainActivity,
+                            "⚠️ Ad was closed early. Watch the full ad to earn 3 Coins!",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
+
+                handler.post { safeComplete(wasAdShown = true) }
             }
-            checkHandler.postDelayed(checkRunnable, 250)
+
+            override fun onAdFailedToShowFullScreenContent(e: AdError) {
+                android.util.Log.e("AdMob", "Ad failed to show: ${e.message}")
+                handler.post { safeComplete(wasAdShown = false) }
+            }
+        }
+
+        this@MainActivity.runOnUiThread {
+            try {
+                currentAd.show(this@MainActivity)
+            } catch (e: Exception) {
+                android.util.Log.e("AdMob", "Exception showing ad: ${e.message}")
+                safeComplete(wasAdShown = false)
+            }
         }
     }
 
@@ -212,11 +199,17 @@ class MainActivity : ComponentActivity() {
         com.example.honeycombmaze.game.SoundManager.init()
         com.example.honeycombmaze.data.CloudSaveManager.initializeAndSignIn(this)
         
+        val testDeviceIds = listOf("AA258783AFC4376739AEB16BC62D2817", AdRequest.DEVICE_ID_EMULATOR)
+        val configuration = com.google.android.gms.ads.RequestConfiguration.Builder()
+            .setTestDeviceIds(testDeviceIds)
+            .build()
+        MobileAds.setRequestConfiguration(configuration)
+
         // Initialize AdMob & preload ad on completion
         MobileAds.initialize(this) {
-            loadRewardedInterstitialAd()
+            loadInterstitialAd()
         }
-        lastAdTime = System.currentTimeMillis()
+        lastAdTime = 0L
         
         enableEdgeToEdge()
         setContent {
@@ -317,31 +310,182 @@ class MainActivity : ComponentActivity() {
 
                 val dao = remember { AppDatabase.getDatabase(context).gameDataDao() }
                 val prefsManager = remember { com.example.honeycombmaze.data.PreferencesManager(context) }
-                
-                LaunchedEffect(Unit) {
-                    com.example.honeycombmaze.data.CloudSaveManager.initializeAndSignIn(context) {
-                        com.example.honeycombmaze.data.CloudSaveManager.loadFromCloud(context, prefsManager)
+
+                var showAdPromptDialog by remember { mutableStateOf(false) }
+                var showAdRewardDialog by remember { mutableStateOf(false) }
+                var pendingAdPromptAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+                val triggerAdWithPrompt: (() -> Unit) -> Unit = { onProceed ->
+                    if (mInterstitialAd == null) {
+                        loadInterstitialAd()
+                        onProceed()
+                    } else {
+                        pendingAdPromptAction = onProceed
+                        showAdPromptDialog = true
                     }
                 }
 
+                if (showAdPromptDialog) {
+                    AlertDialog(
+                        onDismissRequest = {
+                            showAdPromptDialog = false
+                            val action = pendingAdPromptAction
+                            pendingAdPromptAction = null
+                            action?.invoke()
+                        },
+                        title = {
+                            Text(
+                                text = "🎬 Watch Full Ad for +3 Coins!",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        },
+                        text = {
+                            Text(
+                                text = "Watch the full ad to earn 🍯 +3 free Coins! Make sure to watch until the end without closing early to claim your reward.",
+                                color = TextSecondary,
+                                fontSize = 16.sp
+                            )
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    showAdPromptDialog = false
+                                    val action = pendingAdPromptAction
+                                    pendingAdPromptAction = null
+                                    showAdWithSafetyTimeout(
+                                        prefsManager = prefsManager,
+                                        onFullAdWatched = {
+                                            showAdRewardDialog = true
+                                        },
+                                        onComplete = {
+                                            action?.invoke()
+                                        }
+                                    )
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = NeonGreen)
+                            ) {
+                                Text("WATCH AD (+3 🍯)", color = BackgroundDark, fontWeight = FontWeight.Bold)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(
+                                onClick = {
+                                    showAdPromptDialog = false
+                                    val action = pendingAdPromptAction
+                                    pendingAdPromptAction = null
+                                    action?.invoke()
+                                }
+                            ) {
+                                Text("SKIP AD", color = TextSecondary)
+                            }
+                        },
+                        containerColor = CardBackground
+                    )
+                }
+
+                if (showAdRewardDialog) {
+                    var animatedCoins by remember { mutableStateOf(0) }
+                    LaunchedEffect(Unit) {
+                        com.example.honeycombmaze.game.SoundManager.playWinSound()
+                        for (i in 1..3) {
+                            kotlinx.coroutines.delay(120)
+                            animatedCoins = i
+                        }
+                        kotlinx.coroutines.delay(2000)
+                        showAdRewardDialog = false
+                    }
+
+                    androidx.compose.ui.window.Dialog(onDismissRequest = { showAdRewardDialog = false }) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth(0.92f)
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(CardBackground.copy(alpha = 0.96f))
+                                .border(2.dp, NeonYellow, RoundedCornerShape(24.dp))
+                                .clickable { showAdRewardDialog = false }
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "AD REWARD CLAIMED!",
+                                color = NeonYellow,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                text = "🎉 You watched the full ad! Reward unlocked:",
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            // Animated Honey Coins Display
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Color(0xFF232A42))
+                                    .border(1.dp, NeonYellow.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                                    .padding(horizontal = 24.dp, vertical = 12.dp)
+                            ) {
+                                Text(
+                                    text = "🍯",
+                                    fontSize = 28.sp
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "+$animatedCoins Coins!",
+                                    color = NeonYellow,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+                
                 val scope = rememberCoroutineScope()
                 var currentScreen by remember { mutableStateOf<Screen>(Screen.Menu) }
                 val gameState = remember { GameState() }
                 var isLoaded by remember { mutableStateOf(false) }
                 val maxLevels = remember { androidx.compose.runtime.mutableStateMapOf<GameMode, Int>() }
 
-                val unlockModeLevelsAction: (GameMode?) -> Unit = { targetMode ->
-                    val modesToUnlock = if (targetMode != null) listOf(targetMode) else GameMode.values().toList()
-                    modesToUnlock.forEach { mode ->
-                        maxLevels[mode] = 100
-                        prefsManager.setMaxUnlockedLevel(mode.id, 100)
-                        scope.launch(Dispatchers.IO) {
-                            dao.saveGameData(GameData(mode.id, 100))
+                val refreshMaxLevels: () -> Unit = {
+                    scope.launch(Dispatchers.IO) {
+                        GameMode.values().forEach { mode ->
+                            val data = dao.getGameData(mode.id)
+                            val dbLevel = data?.maxUnlockedLevel ?: 1
+                            val prefLevel = prefsManager.getMaxUnlockedLevel(mode.id)
+                            val isThisModeLevelsUnlocked = prefsManager.isModeLevelsUnlocked(mode.id)
+                            val highest = if (isThisModeLevelsUnlocked) 100 else maxOf(dbLevel, prefLevel)
+                            withContext(Dispatchers.Main) {
+                                maxLevels[mode] = highest
+                            }
+                            if (highest > dbLevel) {
+                                dao.saveGameData(GameData(mode.id, highest))
+                            }
                         }
                     }
-                    com.example.honeycombmaze.data.CloudSaveManager.saveToCloud(context, prefsManager)
-                    val msg = if (targetMode != null) "🔓 All 100 levels unlocked for ${targetMode.title}!" else "🔓 All levels unlocked!"
-                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                }
+
+                val unlockModeLevelsAction: (GameMode?) -> Unit = { targetMode ->
+                    val modeToUnlock = targetMode ?: (currentScreen as? Screen.LevelSelection)?.mode
+                    if (modeToUnlock != null) {
+                        maxLevels[modeToUnlock] = 100
+                        prefsManager.setModeLevelsUnlocked(modeToUnlock.id, true)
+                        prefsManager.setMaxUnlockedLevel(modeToUnlock.id, 100)
+                        scope.launch(Dispatchers.IO) {
+                            dao.saveGameData(GameData(modeToUnlock.id, 100))
+                        }
+                        com.example.honeycombmaze.data.CloudSaveManager.saveToCloud(context, prefsManager)
+                        refreshMaxLevels()
+                        android.widget.Toast.makeText(context, "🔓 All 100 levels unlocked for ${modeToUnlock.title}!", android.widget.Toast.LENGTH_LONG).show()
+                    }
                 }
 
                 val billingManager = remember {
@@ -351,33 +495,20 @@ class MainActivity : ComponentActivity() {
                         onHoneyPurchased = {
                             com.example.honeycombmaze.data.CloudSaveManager.saveToCloud(context, prefsManager)
                         },
-                        onAllLevelsUnlocked = {
-                            val activeScreen = currentScreen
-                            val modeToUnlock = if (activeScreen is Screen.LevelSelection) activeScreen.mode else null
-                            unlockModeLevelsAction(modeToUnlock)
+                        onModeLevelsUnlocked = { unlockedMode ->
+                            unlockModeLevelsAction(unlockedMode)
                         }
                     )
                 }
 
                 LaunchedEffect(Unit) {
-                    withContext(Dispatchers.IO) {
-                        GameMode.values().forEach { mode ->
-                            val data = dao.getGameData(mode.id)
-                            val dbLevel = data?.maxUnlockedLevel ?: 1
-                            val prefLevel = prefsManager.getMaxUnlockedLevel(mode.id)
-                            val highest = maxOf(dbLevel, prefLevel)
-                            if (prefsManager.isAllLevelsUnlocked || highest >= 100) {
-                                maxLevels[mode] = 100
-                                dao.saveGameData(GameData(mode.id, 100))
-                            } else {
-                                maxLevels[mode] = highest
-                                if (highest > dbLevel) {
-                                    dao.saveGameData(GameData(mode.id, highest))
-                                }
-                            }
+                    refreshMaxLevels()
+                    isLoaded = true
+                    com.example.honeycombmaze.data.CloudSaveManager.initializeAndSignIn(context) {
+                        com.example.honeycombmaze.data.CloudSaveManager.loadFromCloud(context, prefsManager) {
+                            refreshMaxLevels()
                         }
                     }
-                    isLoaded = true
                 }
                 
                 // Save whenever level changes during gameplay (if it exceeds max)
@@ -386,9 +517,11 @@ class MainActivity : ComponentActivity() {
                         val currentMax = maxLevels[gameState.gameMode] ?: 1
                         if (gameState.level > currentMax) {
                             maxLevels[gameState.gameMode] = gameState.level
+                            prefsManager.setMaxUnlockedLevel(gameState.gameMode.id, gameState.level, syncCloud = true)
                             withContext(Dispatchers.IO) {
                                 dao.saveGameData(GameData(gameState.gameMode.id, gameState.level))
                             }
+                            com.example.honeycombmaze.data.CloudSaveManager.saveToCloud(context, prefsManager)
                         }
                     }
                 }
@@ -406,7 +539,7 @@ class MainActivity : ComponentActivity() {
                 // Save best moves and award Honey when won
                 LaunchedEffect(gameState.isWon) {
                     if (gameState.isWon) {
-                        loadRewardedInterstitialAd() // Preload ad for level end
+                        loadInterstitialAd() // Preload ad for level end
                         prefsManager.honey += (((gameState.level - 1) / 10) + 1)
                         com.example.honeycombmaze.data.CloudSaveManager.saveToCloud(context, prefsManager)
                         com.example.honeycombmaze.game.SoundManager.playHoneyCollectSound()
@@ -439,12 +572,16 @@ class MainActivity : ComponentActivity() {
                                     onModeSelected = { mode ->
                                         currentScreen = Screen.LevelSelection(mode = mode)
                                     },
+                                    onWatchAdForReward = {
+                                        triggerAdWithPrompt {}
+                                    },
                                     onBuyProduct = { productId ->
                                         activity?.let {
                                             billingManager.launchPurchaseFlow(it, productId)
                                         }
                                     },
                                     onResetAllData = {
+                                        billingManager.consumeUnlockAllLevels()
                                         prefsManager.resetAllData()
                                         scope.launch(Dispatchers.IO) {
                                             dao.deleteAllGameData()
@@ -455,7 +592,7 @@ class MainActivity : ComponentActivity() {
                                                 dao.saveGameData(GameData(mode.id, 1))
                                             }
                                         }
-                                        android.widget.Toast.makeText(context, "🗑️ All game data and Cloud Save erased!", android.widget.Toast.LENGTH_LONG).show()
+                                        android.widget.Toast.makeText(context, "🗑️ All game data reset! Purchases cancelled.", android.widget.Toast.LENGTH_LONG).show()
                                     }
                                 )
                             }
@@ -496,18 +633,18 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.fillMaxSize().background(BackgroundDark)
                                 ) {
                                     androidx.compose.foundation.layout.Row(
-                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = title,
-                                            color = Color.White,
-                                            fontSize = 24.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Spacer(modifier = Modifier.size(8.dp))
-                                        androidx.compose.material3.IconButton(onClick = { showTutorial = true }) {
+                                         modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp),
+                                         horizontalArrangement = Arrangement.Center,
+                                         verticalAlignment = Alignment.CenterVertically
+                                     ) {
+                                         Text(
+                                             text = title,
+                                             color = Color.White,
+                                             fontSize = 24.sp,
+                                             fontWeight = FontWeight.Bold
+                                         )
+                                         Spacer(modifier = Modifier.size(8.dp))
+                                         androidx.compose.material3.IconButton(onClick = { showTutorial = true }) {
                                              androidx.compose.material3.Icon(
                                                  imageVector = androidx.compose.material.icons.Icons.Default.Info,
                                                  contentDescription = "How to Play",
@@ -516,29 +653,34 @@ class MainActivity : ComponentActivity() {
                                          }
                                      }
 
-                                     if (maxUnlocked < 100) {
+                                     if (maxUnlocked < 100 && !prefsManager.isModeLevelsUnlocked(screen.mode.id)) {
+                                         val modeProductId = com.example.honeycombmaze.data.BillingManager.getProductIdForMode(screen.mode)
                                          Button(
                                              onClick = {
-                                                 unlockModeLevelsAction(screen.mode)
                                                  activity?.let {
-                                                     billingManager.launchPurchaseFlow(it, com.example.honeycombmaze.data.BillingManager.PRODUCT_UNLOCK_ALL_LEVELS)
+                                                     billingManager.launchPurchaseFlow(it, modeProductId)
                                                  }
                                              },
                                              colors = ButtonDefaults.buttonColors(containerColor = NeonYellow),
                                              modifier = Modifier
                                                  .fillMaxWidth()
-                                                 .padding(horizontal = 16.dp, vertical = 4.dp)
+                                                 .padding(horizontal = 16.dp, vertical = 6.dp)
                                          ) {
-                                             Text("🔓 UNLOCK ALL 100 LEVELS — ₹250", color = BackgroundDark, fontWeight = FontWeight.Bold)
+                                             Text("🔓 UNLOCK ALL 100 LEVELS", color = BackgroundDark, fontWeight = FontWeight.Bold)
                                          }
                                      }
-                                    
-                                    LazyVerticalGrid(
-                                        columns = GridCells.Fixed(5),
-                                        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)
-                                    ) {
-                                        items(100) { index ->
+                                     
+                                     LazyVerticalGrid(
+                                         columns = GridCells.Fixed(5),
+                                         modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)
+                                     ) {
+                                         items(100) { index ->
                                             val levelNumber = index + 1
+                                            val maxUnlocked = maxLevels[screen.mode] ?: 1
+                                     
+                                            LaunchedEffect(screen.mode) {
+                                                refreshMaxLevels()
+                                            }
                                             val isUnlocked = levelNumber <= maxUnlocked
                                             
                                             val itemColor = if (isUnlocked) NeonGreen else CardBackground
@@ -583,27 +725,29 @@ class MainActivity : ComponentActivity() {
                                 BackHandler {
                                     currentScreen = Screen.Menu
                                 }
-                                 GameScreen(
-                                     gameState = gameState,
-                                     prefsManager = prefsManager,
-                                     onNextLevel = {
-                                         if (gameState.level >= 100) {
-                                             currentScreen = Screen.LevelSelection(mode = gameState.gameMode)
-                                         } else {
-                                             // Show ad after every 5 minutes (300,000 ms) of app usage
-                                             val FIVE_MINUTES_MS = 5 * 60 * 1000L
-                                             val timeSinceLastAd = System.currentTimeMillis() - lastAdTime
-                                             val shouldShowAd = !prefsManager.isRemoveAdsPurchased && (timeSinceLastAd >= FIVE_MINUTES_MS)
-                                             if (shouldShowAd) {
-                                                 showAdWithSafetyTimeout(prefsManager) {
-                                                     gameState.nextLevel()
-                                                 }
-                                             } else {
-                                                 gameState.nextLevel()
-                                             }
-                                         }
-                                     }
-                                 )
+                                GameScreen(
+                                    gameState = gameState,
+                                    prefsManager = prefsManager,
+                                    onNextLevel = {
+                                        if (gameState.level >= 100) {
+                                            currentScreen = Screen.LevelSelection(mode = gameState.gameMode)
+                                        } else {
+                                            // Show ad after every 1 minute (60,000 ms) of app usage
+                                            val ONE_MINUTE_MS = 1 * 60 * 1000L
+                                            val timeSinceLastAd = System.currentTimeMillis() - lastAdTime
+                                            val isRemoveAds = prefsManager.isRemoveAdsPurchased
+                                            val shouldShowAd = !isRemoveAds && (timeSinceLastAd >= ONE_MINUTE_MS)
+                                            android.util.Log.d("AdMob", "onNextLevel -> timeSinceLastAd=${timeSinceLastAd/1000}s, isRemoveAds=$isRemoveAds, shouldShowAd=$shouldShowAd")
+                                            if (shouldShowAd) {
+                                                triggerAdWithPrompt {
+                                                    gameState.nextLevel()
+                                                }
+                                            } else {
+                                                gameState.nextLevel()
+                                            }
+                                        }
+                                    }
+                                )
                             }
                         }
                     }
@@ -621,10 +765,8 @@ class MainActivity : ComponentActivity() {
         if (isAdShowing) {
             android.util.Log.w("AdMob", "App resumed while ad was active. Clearing ad state.")
             isAdShowing = false
-            adTimeoutRunnable?.let { adTimeoutHandler.removeCallbacks(it) }
-            adTimeoutRunnable = null
-            mRewardedInterstitialAd = null
-            loadRewardedInterstitialAd()
+            mInterstitialAd = null
+            loadInterstitialAd()
         }
     }
 

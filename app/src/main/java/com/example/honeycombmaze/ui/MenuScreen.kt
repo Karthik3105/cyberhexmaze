@@ -43,9 +43,11 @@ fun MainMenuScreen(
     prefsManager: com.example.honeycombmaze.data.PreferencesManager,
     totalLevels: Int,
     onModeSelected: (GameMode) -> Unit,
+    onWatchAdForReward: () -> Unit = {},
     onBuyProduct: (String) -> Unit = {},
     onResetAllData: () -> Unit = {}
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val currentHoney = prefsManager.honey
     var showShopDialog by remember { mutableStateOf(false) }
     var showAvatarDialog by remember { mutableStateOf(false) }
@@ -95,7 +97,7 @@ fun MainMenuScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Select a pack to purchase via Google Play Billing:")
-                    
+
                     Button(
                         onClick = {
                             showShopDialog = false
@@ -132,17 +134,6 @@ fun MainMenuScreen(
                     Button(
                         onClick = {
                             showShopDialog = false
-                            onBuyProduct(com.example.honeycombmaze.data.BillingManager.PRODUCT_UNLOCK_ALL_LEVELS)
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("🔓 Unlock All Levels — ₹250", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-
-                    Button(
-                        onClick = {
-                            showShopDialog = false
                             onBuyProduct(com.example.honeycombmaze.data.BillingManager.PRODUCT_REMOVE_ADS)
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = NeonCoral),
@@ -162,7 +153,6 @@ fun MainMenuScreen(
         )
     }
 
-    val context = androidx.compose.ui.platform.LocalContext.current
     Scaffold(
         containerColor = BackgroundDark
     ) { innerPadding ->
@@ -223,7 +213,7 @@ fun MainMenuScreen(
                         subtitle = "Beware the orange spikes!",
                         color = NeonYellow,
                         icon = Icons.Default.Warning,
-                        isNew = true,
+                        isNew = false,
                         prefsManager = prefsManager,
                         currentHoney = currentHoney,
                         onUnlock = { },
@@ -237,7 +227,7 @@ fun MainMenuScreen(
                         subtitle = "The floor is lava! Don't retrace steps",
                         color = Color(0xFFFF3300), // Vibrant Fiery Red/Orange
                         icon = Icons.Default.Whatshot,
-                        isNew = true,
+                        isNew = false,
                         prefsManager = prefsManager,
                         currentHoney = currentHoney,
                         onUnlock = { },
@@ -251,7 +241,7 @@ fun MainMenuScreen(
                         subtitle = "Fog of War mechanics",
                         color = NeonPurple,
                         icon = Icons.Default.VisibilityOff,
-                        isNew = true,
+                        isNew = false,
                         prefsManager = prefsManager,
                         currentHoney = currentHoney,
                         onUnlock = { },
@@ -265,7 +255,7 @@ fun MainMenuScreen(
                         subtitle = "Slide until you hit a wall!",
                         color = Color(0xFF00BFFF), // Deep Sky Blue
                         icon = Icons.Default.AcUnit,
-                        isNew = true,
+                        isNew = false,
                         prefsManager = prefsManager,
                         currentHoney = currentHoney,
                         onUnlock = { },
@@ -279,7 +269,7 @@ fun MainMenuScreen(
                         subtitle = "Race against the ticking clock!",
                         color = Color(0xFFFF5722), // Vibrant Neon Orange
                         icon = Icons.Default.Timer,
-                        isNew = true,
+                        isNew = false,
                         prefsManager = prefsManager,
                         currentHoney = currentHoney,
                         onUnlock = { },

@@ -94,6 +94,11 @@ object CloudSaveManager {
                         if (prefsManager.isAvatarUnlocked(av.id)) unlockedAvatarsArray.put(av.id)
                     }
 
+                    val unlockedModeLevelsArray = org.json.JSONArray()
+                    for (mId in 0..10) {
+                        if (prefsManager.isModeLevelsUnlocked(mId)) unlockedModeLevelsArray.put(mId)
+                    }
+
                     val modeLevelsJson = JSONObject()
                     for (mId in 0..10) {
                         modeLevelsJson.put(mId.toString(), prefsManager.getMaxUnlockedLevel(mId))
@@ -104,9 +109,10 @@ object CloudSaveManager {
                         put("honey", finalHoney)
                         put("selectedAvatar", prefsManager.selectedAvatar)
                         put("isRemoveAdsPurchased", prefsManager.isRemoveAdsPurchased)
-                        put("isAllLevelsUnlocked", prefsManager.isAllLevelsUnlocked)
+                        put("isAllLevelsUnlocked", false)
                         put("unlockedModes", unlockedModesArray)
                         put("unlockedAvatars", unlockedAvatarsArray)
+                        put("unlockedModeLevels", unlockedModeLevelsArray)
                         put("modeLevels", modeLevelsJson)
                     }
 
@@ -162,9 +168,6 @@ object CloudSaveManager {
                             if (selectedAvatar.isNotEmpty()) {
                                 prefsManager.selectedAvatar = selectedAvatar
                             }
-                            if (isRemoveAdsPurchased) {
-                                prefsManager.isRemoveAdsPurchased = true
-                            }
                             if (isAllLevelsUnlocked) {
                                 prefsManager.isAllLevelsUnlocked = true
                             }
@@ -188,6 +191,14 @@ object CloudSaveManager {
                                     if (lvl > 1) {
                                         prefsManager.setMaxUnlockedLevel(mId, lvl, syncCloud = false)
                                     }
+                                }
+                            }
+                            val unlockedModeLevels = json.optJSONArray("unlockedModeLevels")
+                            if (unlockedModeLevels != null) {
+                                for (i in 0 until unlockedModeLevels.length()) {
+                                    val mId = unlockedModeLevels.getInt(i)
+                                    prefsManager.setModeLevelsUnlocked(mId, true, syncCloud = false)
+                                    prefsManager.setMaxUnlockedLevel(mId, 100, syncCloud = false)
                                 }
                             }
 

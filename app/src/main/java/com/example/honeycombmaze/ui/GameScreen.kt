@@ -5,9 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -79,6 +81,12 @@ fun GameScreen(
         label = "GoalPulse"
     )
     
+    var panOffset by remember { mutableStateOf(Offset.Zero) }
+
+    LaunchedEffect(gameState.level, gameState.gameMode) {
+        panOffset = Offset.Zero
+    }
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -88,15 +96,19 @@ fun GameScreen(
         val heightF = constraints.maxHeight.toFloat()
         
         val density = androidx.compose.ui.platform.LocalDensity.current.density
-        val topOffset = minOf(160f * density, heightF * 0.18f)
-        val bottomOffset = minOf(260f * density, heightF * 0.28f)
+        val topOffset = minOf(65f * density, heightF * 0.075f)
+        val bottomOffset = minOf(145f * density, heightF * 0.17f)
         
-        val availableHeight = kotlin.math.max(heightF - topOffset - bottomOffset, heightF * 0.4f)
-        val center = Point(widthF / 2f, topOffset + availableHeight / 2f)
+        val availableHeight = kotlin.math.max(heightF - topOffset - bottomOffset, heightF * 0.6f)
     
-        val hexSizeX = widthF / (gameState.radius * 2 + 2) / kotlin.math.sqrt(3f)
-        val hexSizeY = availableHeight / (gameState.radius * 2 + 2) / 1.5f
+        val hexSizeX = (widthF - 12f * density) / (gameState.gridCols + 0.5f) / kotlin.math.sqrt(3f)
+        val hexSizeY = (availableHeight - 8f * density) / (gameState.gridRows * 1.5f + 0.5f)
         val hexSize = kotlin.math.min(hexSizeX, hexSizeY)
+
+        val center = Point(
+            x = widthF / 2f - 0.25f * hexSize * kotlin.math.sqrt(3f),
+            y = topOffset + availableHeight / 2f
+        )
 
         val layout = HexLayout(hexSize, center)
 
@@ -202,42 +214,62 @@ fun GameScreen(
             }
         }
 
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { dragAccumulator = Offset.Zero },
-                        onDragEnd = {
+        var dragAccumulator by remember { mutableStateOf(Offset.Zero) }
+        var dragTriggered by remember { mutableStateOf(false) }
+
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(gameState.level) {
+                        detectDragGestures(
+                            onDragStart = { 
+                                dragAccumulator = Offset.Zero 
+                                dragTriggered = false
+                            },
+                            onDragEnd = {
+                                if (!dragTriggered) {
+                                    val dx = dragAccumulator.x
+                                    val dy = dragAccumulator.y
+                                    if (dx * dx + dy * dy > 200) {
+                                        val dir = getDirectionFromSwipe(dx, dy)
+                                        if (dir != -1) {
+                                            gameState.movePlayer(dir)
+                                        }
+                                    }
+                                }
+                            }
+                        ) { change, dragAmount ->
+                            change.consume()
+                            dragAccumulator += dragAmount
                             val dx = dragAccumulator.x
                             val dy = dragAccumulator.y
-                            if (dx * dx + dy * dy > 1000) {
+                            if (!dragTriggered && dx * dx + dy * dy > 400) {
+                                val dir = getDirectionFromSwipe(dx, dy)
+                                if (dir != -1) {
+                                    gameState.movePlayer(dir)
+                                    dragTriggered = true
+                                }
+                            }
+                        }
+                    }
+                    .pointerInput(gameState.level) {
+                        detectTapGestures { offset ->
+                            val dx = offset.x - playerCenterPixel.x
+                            val dy = offset.y - playerCenterPixel.y
+                            if (dx * dx + dy * dy > 300) { 
                                 val dir = getDirectionFromSwipe(dx, dy)
                                 if (dir != -1) {
                                     gameState.movePlayer(dir)
                                 }
                             }
                         }
-                    ) { change, dragAmount ->
-                        change.consume()
-                        dragAccumulator += dragAmount
                     }
-                }
-                .pointerInput(Unit) {
-                    detectTapGestures { offset ->
-                        val dx = offset.x - playerCenterPixel.x
-                        val dy = offset.y - playerCenterPixel.y
-                        if (dx * dx + dy * dy > 2000) { 
-                            val dir = getDirectionFromSwipe(dx, dy)
-                            if (dir != -1) {
-                                gameState.movePlayer(dir)
-                            }
-                        }
-                    }
-                }
-        ) {
-            // Draw Hex Grid and Glowing Walls
-            for ((coord, cell) in gameState.grid) {
+            ) {
+                // Draw Hex Grid and Glowing Walls
+                for ((coord, cell) in gameState.grid) {
                 if (!isVisible(coord)) continue
                 
                 val corners = layout.polygonCorners(coord)
@@ -263,6 +295,23 @@ fun GameScreen(
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f)
                 )
 
+                val (wallGlowColor, wallCoreColor) = when (gameState.gameMode) {
+                    com.example.honeycombmaze.game.GameMode.CLASSIC -> 
+                        Pair(Color(0x4400FFCC), Color(0xFF00FFCC))
+                    com.example.honeycombmaze.game.GameMode.CHASERS -> 
+                        Pair(Color(0x44FF0055), Color(0xFFFF0055))
+                    com.example.honeycombmaze.game.GameMode.TRAPS -> 
+                        Pair(Color(0x44FFAB00), Color(0xFFFFAB00))
+                    com.example.honeycombmaze.game.GameMode.DARKNESS -> 
+                        Pair(Color(0x44D500F9), Color(0xFFD500F9))
+                    com.example.honeycombmaze.game.GameMode.LAVA_FLOOR -> 
+                        Pair(Color(0x44FF3D00), Color(0xFFFF3D00))
+                    com.example.honeycombmaze.game.GameMode.ICE_SLIDE -> 
+                        Pair(Color(0x4400E5FF), Color(0xFF00E5FF))
+                    com.example.honeycombmaze.game.GameMode.TIME_RUSH -> 
+                        Pair(Color(0x4476FF03), Color(0xFF76FF03))
+                }
+
                 // Dual-Pass Glowing Walls
                 for (i in 0..5) {
                     if (cell.walls[i]) {
@@ -270,14 +319,14 @@ fun GameScreen(
                         val p2 = corners[(i + 1) % 6]
                         // Outer translucent neon bloom glow
                         drawLine(
-                            color = Color(0x44FF3366),
+                            color = wallGlowColor,
                             start = Offset(p1.x, p1.y),
                             end = Offset(p2.x, p2.y),
                             strokeWidth = 14f
                         )
                         // Inner crisp bright neon line
                         drawLine(
-                            color = Color(0xFFFF3366),
+                            color = wallCoreColor,
                             start = Offset(p1.x, p1.y),
                             end = Offset(p2.x, p2.y),
                             strokeWidth = 6f
@@ -472,6 +521,7 @@ fun GameScreen(
                 )
             }
         }
+    }
         
         // Futuristic Cyber Glass HUD Card
         Card(
@@ -486,7 +536,7 @@ fun GameScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                    .padding(vertical = 8.dp, horizontal = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Level Pill Badge
@@ -757,7 +807,7 @@ fun getDirectionFromSwipe(dx: Float, dy: Float): Int {
 fun HexController(modifier: Modifier = Modifier, onMove: (Int) -> Unit, isPaused: Boolean, onTogglePause: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.padding(bottom = 28.dp)
+        modifier = modifier.padding(bottom = 4.dp)
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             ControlButton(rotation = -60f, onClick = { onMove(2) })

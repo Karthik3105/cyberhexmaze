@@ -90,9 +90,12 @@ class PreferencesManager(private val context: Context) {
             }
         }
 
+    private var _isRemoveAdsPurchasedState = androidx.compose.runtime.mutableStateOf(prefs.getBoolean(KEY_REMOVE_ADS, false))
+
     var isRemoveAdsPurchased: Boolean
-        get() = prefs.getBoolean(KEY_REMOVE_ADS, false)
+        get() = _isRemoveAdsPurchasedState.value
         set(value) {
+            _isRemoveAdsPurchasedState.value = value
             prefs.edit().putBoolean(KEY_REMOVE_ADS, value).apply()
             saveInternalBackup(honey)
             CloudSaveManager.saveToCloud(context, this)
@@ -165,11 +168,27 @@ class PreferencesManager(private val context: Context) {
     }
 
     fun getMaxUnlockedLevel(modeId: Int): Int {
+        if (isModeLevelsUnlocked(modeId)) return 100
         return prefs.getInt("mode_max_level_$modeId", 1)
     }
 
     fun setMaxUnlockedLevel(modeId: Int, maxLevel: Int, syncCloud: Boolean = true) {
         prefs.edit().putInt("mode_max_level_$modeId", maxLevel).apply()
+        saveInternalBackup(honey)
+        if (syncCloud && hasLoadedFromCloud && !isCloudRestoreInProgress) {
+            CloudSaveManager.saveToCloud(context, this)
+        }
+    }
+
+    fun isModeLevelsUnlocked(modeId: Int): Boolean {
+        return prefs.getBoolean("mode_levels_unlocked_$modeId", false)
+    }
+
+    fun setModeLevelsUnlocked(modeId: Int, unlocked: Boolean, syncCloud: Boolean = true) {
+        prefs.edit().putBoolean("mode_levels_unlocked_$modeId", unlocked).apply()
+        if (unlocked) {
+            prefs.edit().putInt("mode_max_level_$modeId", 100).apply()
+        }
         saveInternalBackup(honey)
         if (syncCloud && hasLoadedFromCloud && !isCloudRestoreInProgress) {
             CloudSaveManager.saveToCloud(context, this)
@@ -204,8 +223,9 @@ class PreferencesManager(private val context: Context) {
         // Mode unlocking costs
         val MODE_COSTS = mapOf(
             4 to 500,   // DARKNESS
-            5 to 1000,   // ICE_SLIDE
-            6 to 2000   // TIME_RUSH
+            5 to 2000,   // ICE_SLIDE
+            6 to 5000   // TIME_RUSH
         )
     }
 }
+

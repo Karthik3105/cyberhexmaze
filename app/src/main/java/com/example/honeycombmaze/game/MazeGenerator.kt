@@ -13,13 +13,15 @@ data class Cell(
 
 class MazeGenerator {
 
-    // Generates a hexagonal grid within a given radius
-    fun generateGrid(radius: Int): Map<HexCoord, Cell> {
+    // Generates a rectangular hexagonal grid with given columns and rows
+    fun generateGrid(cols: Int, rows: Int): Map<HexCoord, Cell> {
         val cells = mutableMapOf<HexCoord, Cell>()
-        for (q in -radius..radius) {
-            val r1 = max(-radius, -q - radius)
-            val r2 = kotlin.math.min(radius, -q + radius)
-            for (r in r1..r2) {
+        val halfW = cols / 2
+        val halfH = rows / 2
+        for (r in -halfH..halfH) {
+            val qOffset = r shr 1
+            for (col in -halfW..halfW) {
+                val q = col - qOffset
                 val coord = HexCoord(q, r)
                 cells[coord] = Cell(coord)
             }
@@ -27,13 +29,19 @@ class MazeGenerator {
         return cells
     }
 
-    // Generates a maze using randomized DFS
-    fun generateMaze(radius: Int, gameMode: GameMode = GameMode.CLASSIC): Map<HexCoord, Cell> {
-        val grid = generateGrid(radius)
+    // Legacy radius helper
+    fun generateGrid(radius: Int): Map<HexCoord, Cell> {
+        val cols = radius * 2 + 1
+        val rows = ((cols * 1.4f).toInt()) or 1
+        return generateGrid(cols, rows)
+    }
+
+    // Generates a rectangular maze using randomized DFS
+    fun generateMaze(cols: Int, rows: Int, gameMode: GameMode = GameMode.CLASSIC): Map<HexCoord, Cell> {
+        val grid = generateGrid(cols, rows)
         if (grid.isEmpty()) return grid
 
-        // Start from center
-        val startCoord = HexCoord(0, 0)
+        val startCoord = grid.keys.firstOrNull() ?: HexCoord(0, 0)
         val stack = mutableListOf<HexCoord>()
         
         grid[startCoord]?.visited = true
@@ -42,7 +50,6 @@ class MazeGenerator {
         while (stack.isNotEmpty()) {
             val currentCoord = stack.last()
             
-            // Find unvisited neighbors in the grid
             val unvisitedNeighbors = mutableListOf<Pair<Int, HexCoord>>()
             for (i in 0 until 6) {
                 val neighborCoord = currentCoord.getNeighbor(i)
@@ -53,10 +60,8 @@ class MazeGenerator {
             }
 
             if (unvisitedNeighbors.isNotEmpty()) {
-                // Choose a random neighbor
                 val (dir, nextCoord) = unvisitedNeighbors.random()
                 
-                // Remove walls between current and chosen neighbor
                 grid[currentCoord]!!.walls[dir] = false
                 val oppositeDir = (dir + 3) % 6
                 grid[nextCoord]!!.walls[oppositeDir] = false
@@ -68,9 +73,6 @@ class MazeGenerator {
             }
         }
         
-        // Add loops by randomly knocking down some remaining internal walls.
-        // This makes the maze "braided", giving the player multiple paths to escape enemies.
-        // For CLASSIC and LAVA_FLOOR modes, we want a single path maze with 0.0 braid chance.
         val braidChance = when (gameMode) {
             GameMode.CLASSIC, GameMode.LAVA_FLOOR -> 0.0
             else -> 0.15
@@ -80,7 +82,6 @@ class MazeGenerator {
             grid.values.forEach { cell ->
                 for (i in 0..5) {
                     if (cell.walls[i]) {
-                        // Chance to break an internal wall
                         if (Math.random() < braidChance) {
                             val neighborCoord = cell.coord.getNeighbor(i)
                             if (grid.containsKey(neighborCoord)) {
@@ -94,5 +95,12 @@ class MazeGenerator {
         }
 
         return grid
+    }
+
+    // Legacy radius overload
+    fun generateMaze(radius: Int, gameMode: GameMode = GameMode.CLASSIC): Map<HexCoord, Cell> {
+        val cols = radius * 2 + 1
+        val rows = ((cols * 1.4f).toInt()) or 1
+        return generateMaze(cols, rows, gameMode)
     }
 }
