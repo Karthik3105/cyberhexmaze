@@ -638,23 +638,6 @@ class MainActivity : ComponentActivity() {
                                              )
                                          }
                                      }
-
-                                     if (maxUnlocked < 100 && !prefsManager.isModeLevelsUnlocked(screen.mode.id)) {
-                                         val modeProductId = com.example.honeycombmaze.data.BillingManager.getProductIdForMode(screen.mode)
-                                         Button(
-                                             onClick = {
-                                                 activity?.let {
-                                                     billingManager.launchPurchaseFlow(it, modeProductId)
-                                                 }
-                                             },
-                                             colors = ButtonDefaults.buttonColors(containerColor = NeonYellow),
-                                             modifier = Modifier
-                                                 .fillMaxWidth()
-                                                 .padding(horizontal = 16.dp, vertical = 6.dp)
-                                         ) {
-                                             Text("🔓 UNLOCK ALL 100 LEVELS", color = BackgroundDark, fontWeight = FontWeight.Bold)
-                                         }
-                                     }
                                      
                                      LazyVerticalGrid(
                                          columns = GridCells.Fixed(5),

@@ -374,13 +374,6 @@ fun TopBar(
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.width(6.dp))
-            Icon(
-                imageVector = Icons.Default.AddCircle,
-                contentDescription = "Buy Honey",
-                tint = NeonGreen,
-                modifier = Modifier.size(20.dp)
-            )
         }
     }
 }
