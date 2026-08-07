@@ -10,10 +10,7 @@
 -keep class com.google.android.gms.auth.** { *; }
 -keep interface com.google.android.gms.auth.** { *; }
 
-# 3. Google Mobile Ads (AdMob)
--keep class com.google.android.gms.ads.** { *; }
--keep interface com.google.android.gms.ads.** { *; }
--dontwarn com.google.android.gms.ads.**
+
 
 # 4. AndroidX Room Database & App Data Models
 -keep class androidx.room.** { *; }

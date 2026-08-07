@@ -130,17 +130,6 @@ fun MainMenuScreen(
                     ) {
                         Text("🍯 1,000 Coins — ₹2,000", color = Color.White, fontWeight = FontWeight.Bold)
                     }
-
-                    Button(
-                        onClick = {
-                            showShopDialog = false
-                            onBuyProduct(com.example.honeycombmaze.data.BillingManager.PRODUCT_REMOVE_ADS)
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = NeonCoral),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("🚫 Remove Ads — ₹1,000", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
                 }
             },
             confirmButton = {},

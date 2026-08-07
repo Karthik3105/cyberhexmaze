@@ -73,7 +73,6 @@ dependencies {
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
     add("annotationProcessor", "androidx.room:room-compiler:$room_version")
-    implementation(libs.play.services.ads)
     implementation("com.android.billingclient:billing-ktx:7.0.0")
     implementation("com.google.android.gms:play-services-games-v2:19.0.0")
     testImplementation(libs.junit)
