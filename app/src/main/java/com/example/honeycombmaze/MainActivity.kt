@@ -460,10 +460,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         val prefs = com.example.honeycombmaze.data.PreferencesManager(this)
-        com.example.honeycombmaze.data.CloudSaveManager.initializeAndSignIn(this) {
-            com.example.honeycombmaze.data.CloudSaveManager.loadFromCloud(this, prefs)
-        }
-
+        com.example.honeycombmaze.data.CloudSaveManager.checkAuthSilentlyAndLoad(this, prefs)
     }
 
     override fun onPause() {

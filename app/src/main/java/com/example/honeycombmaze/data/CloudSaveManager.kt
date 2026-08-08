@@ -21,47 +21,62 @@ fun Context.findActivity(): Activity? {
 
 object CloudSaveManager {
     private const val SNAPSHOT_NAME = "HoneyMazeSaveV2"
-
-    fun openAccountPicker(context: Context) {
-        val activity = context.findActivity() ?: return
-        try {
-            val intent = android.accounts.AccountManager.newChooseAccountIntent(
-                null,
-                null,
-                arrayOf("com.google"),
-                true,
-                null,
-                null,
-                null,
-                null
-            )
-            activity.startActivity(intent)
-        } catch (e: Exception) {
-            try {
-                val intent = android.content.Intent("com.google.android.gms.games.CHANGE_ACCOUNT")
-                intent.setPackage("com.google.android.play.games")
-                activity.startActivity(intent)
-            } catch (e2: Exception) {
-                Log.e("CloudSaveManager", "Could not open account picker: ${e2.message}")
-            }
-        }
-    }
+    private var isSdkInitialized = false
+    private var isSignInInProgress = false
+    private var hasAttemptedInitialSignIn = false
 
     fun initializeAndSignIn(context: Context, onSignedIn: (() -> Unit)? = null) {
         val activity = context.findActivity() ?: return
+        if (isSignInInProgress) return
+
         try {
-            PlayGamesSdk.initialize(activity)
+            if (!isSdkInitialized) {
+                PlayGamesSdk.initialize(activity)
+                isSdkInitialized = true
+            }
+
             val gamesSignInClient = PlayGames.getGamesSignInClient(activity)
-            gamesSignInClient.signIn().addOnCompleteListener { signInTask ->
-                if (signInTask.isSuccessful && signInTask.result.isAuthenticated) {
+            
+            // Check if user is already authenticated without popping up dialogs
+            gamesSignInClient.isAuthenticated.addOnCompleteListener { authTask ->
+                val isAuthenticated = authTask.isSuccessful && authTask.result.isAuthenticated
+                if (isAuthenticated) {
                     onSignedIn?.invoke()
-                } else {
-                    gamesSignInClient.isAuthenticated().addOnCompleteListener { isAuthenticatedTask ->
-                        val isAuthenticated = isAuthenticatedTask.isSuccessful && isAuthenticatedTask.result.isAuthenticated
-                        if (isAuthenticated) {
+                } else if (!hasAttemptedInitialSignIn) {
+                    // Only attempt interactive sign in ONCE on initial launch
+                    hasAttemptedInitialSignIn = true
+                    isSignInInProgress = true
+                    gamesSignInClient.signIn().addOnCompleteListener { signInTask ->
+                        isSignInInProgress = false
+                        if (signInTask.isSuccessful && signInTask.result.isAuthenticated) {
                             onSignedIn?.invoke()
                         }
                     }
+                }
+            }
+        } catch (e: Exception) {
+            isSignInInProgress = false
+            Log.w("CloudSaveManager", "Play Games sign-in skipped: ${e.message}")
+        }
+    }
+
+    /**
+     * Silent check called on onResume - NEVER opens popups or interactive dialogs
+     */
+    fun checkAuthSilentlyAndLoad(context: Context, prefsManager: PreferencesManager) {
+        val activity = context.findActivity() ?: return
+        if (isSignInInProgress) return
+
+        try {
+            if (!isSdkInitialized) {
+                PlayGamesSdk.initialize(activity)
+                isSdkInitialized = true
+            }
+
+            val gamesSignInClient = PlayGames.getGamesSignInClient(activity)
+            gamesSignInClient.isAuthenticated.addOnCompleteListener { authTask ->
+                if (authTask.isSuccessful && authTask.result.isAuthenticated) {
+                    loadFromCloud(context, prefsManager)
                 }
             }
         } catch (_: Exception) {}
@@ -69,10 +84,7 @@ object CloudSaveManager {
 
     fun saveToCloud(context: Context, prefsManager: PreferencesManager) {
         if (!prefsManager.hasLoadedFromCloud || prefsManager.isCloudRestoreInProgress) return
-        val activity = context.findActivity() ?: run {
-            Log.e("CloudSaveManager", "saveToCloud failed: Activity context not found.")
-            return
-        }
+        val activity = context.findActivity() ?: return
         try {
             val snapshotsClient = PlayGames.getSnapshotsClient(activity)
             snapshotsClient.open(SNAPSHOT_NAME, true, SnapshotsClient.RESOLUTION_POLICY_MOST_RECENTLY_MODIFIED)
@@ -125,13 +137,12 @@ object CloudSaveManager {
                     Log.w("CloudSaveManager", "Cloud save skipped or failed: ${e.message}")
                 }
         } catch (e: Exception) {
-            Log.e("CloudSaveManager", "Exception during saveToCloud: ${e.message}")
+            Log.w("CloudSaveManager", "Exception during saveToCloud: ${e.message}")
         }
     }
 
     fun loadFromCloud(context: Context, prefsManager: PreferencesManager, onComplete: ((Boolean) -> Unit)? = null) {
         val activity = context.findActivity() ?: run {
-            Log.e("CloudSaveManager", "loadFromCloud failed: Activity context not found.")
             prefsManager.hasLoadedFromCloud = true
             onComplete?.invoke(false)
             return
@@ -212,7 +223,7 @@ object CloudSaveManager {
                     onComplete?.invoke(false)
                 }
         } catch (e: Exception) {
-            Log.e("CloudSaveManager", "Exception during loadFromCloud: ${e.message}")
+            Log.w("CloudSaveManager", "Exception during loadFromCloud: ${e.message}")
             prefsManager.hasLoadedFromCloud = true
             onComplete?.invoke(false)
         }
