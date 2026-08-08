@@ -718,11 +718,11 @@ class MainActivity : ComponentActivity() {
                                         if (gameState.level >= 100) {
                                             currentScreen = Screen.LevelSelection(mode = gameState.gameMode)
                                         } else {
-                                            // Show ad after every 1 minute (60,000 ms) of app usage
-                                            val ONE_MINUTE_MS = 1 * 60 * 1000L
+                                            // Show ad after every 5 minutes (300,000 ms) of app usage
+                                            val FIVE_MINUTES_MS = 5 * 60 * 1000L
                                             val timeSinceLastAd = System.currentTimeMillis() - lastAdTime
                                             val isRemoveAds = prefsManager.isRemoveAdsPurchased
-                                            val shouldShowAd = !isRemoveAds && (timeSinceLastAd >= ONE_MINUTE_MS)
+                                            val shouldShowAd = !isRemoveAds && (timeSinceLastAd >= FIVE_MINUTES_MS)
                                             if (shouldShowAd) {
                                                 triggerAdWithPrompt {
                                                     gameState.nextLevel()

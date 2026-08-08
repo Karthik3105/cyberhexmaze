@@ -65,8 +65,9 @@ class BillingManager(
             .setProductList(productList)
             .build()
 
-        billingClient.queryProductDetailsAsync(params) { billingResult, productDetailsList ->
-            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && productDetailsList.isNotEmpty()) {
+        billingClient.queryProductDetailsAsync(params) { billingResult, productDetailsResult ->
+            val productDetailsList = productDetailsResult.productDetailsList
+            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && !productDetailsList.isNullOrEmpty()) {
                 val productDetails = productDetailsList[0]
                 val flowParams = BillingFlowParams.newBuilder()
                     .setObfuscatedAccountId(prefsManager.getOrCreateUserGuid())
