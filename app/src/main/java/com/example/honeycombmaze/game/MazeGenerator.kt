@@ -36,12 +36,17 @@ class MazeGenerator {
         return generateGrid(cols, rows)
     }
 
-    // Generates a rectangular maze using randomized DFS
-    fun generateMaze(cols: Int, rows: Int, gameMode: GameMode = GameMode.CLASSIC): Map<HexCoord, Cell> {
+    // Generates a rectangular maze using randomized DFS with deterministic RNG
+    fun generateMaze(
+        cols: Int,
+        rows: Int,
+        gameMode: GameMode = GameMode.CLASSIC,
+        rng: kotlin.random.Random = kotlin.random.Random.Default
+    ): Map<HexCoord, Cell> {
         val grid = generateGrid(cols, rows)
         if (grid.isEmpty()) return grid
 
-        val startCoord = grid.keys.firstOrNull() ?: HexCoord(0, 0)
+        val startCoord = HexCoord(0, 0).takeIf { grid.containsKey(it) } ?: grid.keys.firstOrNull() ?: HexCoord(0, 0)
         val stack = mutableListOf<HexCoord>()
         
         grid[startCoord]?.visited = true
@@ -60,7 +65,7 @@ class MazeGenerator {
             }
 
             if (unvisitedNeighbors.isNotEmpty()) {
-                val (dir, nextCoord) = unvisitedNeighbors.random()
+                val (dir, nextCoord) = unvisitedNeighbors.random(rng)
                 
                 grid[currentCoord]!!.walls[dir] = false
                 val oppositeDir = (dir + 3) % 6
@@ -79,10 +84,12 @@ class MazeGenerator {
         }
 
         if (braidChance > 0) {
-            grid.values.forEach { cell ->
+            val sortedCoords = grid.keys.sortedWith(compareBy({ it.r }, { it.q }))
+            sortedCoords.forEach { coord ->
+                val cell = grid[coord] ?: return@forEach
                 for (i in 0..5) {
                     if (cell.walls[i]) {
-                        if (Math.random() < braidChance) {
+                        if (rng.nextDouble() < braidChance) {
                             val neighborCoord = cell.coord.getNeighbor(i)
                             if (grid.containsKey(neighborCoord)) {
                                 cell.walls[i] = false
@@ -98,9 +105,13 @@ class MazeGenerator {
     }
 
     // Legacy radius overload
-    fun generateMaze(radius: Int, gameMode: GameMode = GameMode.CLASSIC): Map<HexCoord, Cell> {
+    fun generateMaze(
+        radius: Int,
+        gameMode: GameMode = GameMode.CLASSIC,
+        rng: kotlin.random.Random = kotlin.random.Random.Default
+    ): Map<HexCoord, Cell> {
         val cols = radius * 2 + 1
         val rows = ((cols * 1.4f).toInt()) or 1
-        return generateMaze(cols, rows, gameMode)
+        return generateMaze(cols, rows, gameMode, rng)
     }
 }

@@ -46,18 +46,26 @@ class GameState {
         startNewGame()
     }
 
+    companion object {
+        fun getLevelSeed(gameMode: GameMode, level: Int): Long {
+            return (gameMode.id.toLong() * 1000033L) + (level.toLong() * 999983L) + 7919L
+        }
+    }
+
     fun startNewGame() {
+        val rng = kotlin.random.Random(getLevelSeed(gameMode, level))
+
         val colsBase = 5 + ((level - 1) * 16 / 99)
         gridCols = if (colsBase % 2 == 0) colsBase + 1 else colsBase
         val rowsBase = ((gridCols * 1.38f).toInt())
         gridRows = if (rowsBase % 2 == 0) rowsBase + 1 else rowsBase
         radius = gridCols / 2
 
-        grid = mazeGenerator.generateMaze(gridCols, gridRows, gameMode)
+        grid = mazeGenerator.generateMaze(gridCols, gridRows, gameMode, rng)
         
-        // Pick any random cell for the start position
-        val allCells = grid.keys.toList()
-        playerPos = allCells.randomOrNull() ?: HexCoord(0, 0)
+        // Pick start position deterministically
+        val allCells = grid.keys.sortedWith(compareBy({ it.r }, { it.q }))
+        playerPos = allCells.randomOrNull(rng) ?: HexCoord(0, 0)
         
         // Target distance starts small for early levels, and caps at a reasonable distance for the maze size
         val targetDistance = min(level, (gridCols * 1.2).toInt())
@@ -69,7 +77,7 @@ class GameState {
             var validGoalFound = false
             while (attempts < 15 && !validGoalFound) {
                 if (attempts > 0) {
-                    grid = mazeGenerator.generateMaze(gridCols, gridRows, gameMode)
+                    grid = mazeGenerator.generateMaze(gridCols, gridRows, gameMode, rng)
                 }
                 val validIceGoals = allCells.filter { cell ->
                     cell != playerPos && hexDistance(cell, playerPos) >= targetDistance && hasIceSlidePath(playerPos, cell, grid)
@@ -77,7 +85,7 @@ class GameState {
                 val fallbackIceGoals = allCells.filter { cell ->
                     cell != playerPos && hasIceSlidePath(playerPos, cell, grid)
                 }
-                val chosen = validIceGoals.randomOrNull() ?: fallbackIceGoals.maxByOrNull { hexDistance(it, playerPos) }
+                val chosen = validIceGoals.randomOrNull(rng) ?: fallbackIceGoals.maxByOrNull { hexDistance(it, playerPos) }
                 if (chosen != null) {
                     goalPos = chosen
                     validGoalFound = true
@@ -86,10 +94,10 @@ class GameState {
                 }
             }
             if (!validGoalFound) {
-                goalPos = possibleGoals.randomOrNull() ?: (allCells.filter { it != playerPos }.maxByOrNull { hexDistance(it, playerPos) } ?: HexCoord(0, 0))
+                goalPos = possibleGoals.randomOrNull(rng) ?: (allCells.filter { it != playerPos }.maxByOrNull { hexDistance(it, playerPos) } ?: HexCoord(0, 0))
             }
         } else {
-            goalPos = possibleGoals.randomOrNull() ?: (allCells.filter { it != playerPos }.maxByOrNull { hexDistance(it, playerPos) } ?: HexCoord(0, 0))
+            goalPos = possibleGoals.randomOrNull(rng) ?: (allCells.filter { it != playerPos }.maxByOrNull { hexDistance(it, playerPos) } ?: HexCoord(0, 0))
         }
         
         // Make the goal an "exit" by knocking down its outer walls
@@ -117,7 +125,7 @@ class GameState {
         val edgeCells = allCells.filter(isBorderCell)
         val possibleEnemySpawns = edgeCells.filter { 
             it != playerPos && it != goalPos && hexDistance(it, playerPos) >= gridCols / 2
-        }.shuffled()
+        }.shuffled(rng)
         
         // Chasers scale up slowly: 1 for L1-4, 2 for L5-9, etc., up to 5 max
         val numEnemies = if (gameMode == GameMode.CHASERS) min((level - 1) / 5 + 1, 5) else 0 
@@ -127,7 +135,7 @@ class GameState {
         if (gameMode == GameMode.TRAPS) {
             val maxTrapsForLevel = if (level <= 10) level / 2 else level
             val targetCount = maxTrapsForLevel.coerceAtLeast(1)
-            val candidates = allCells.filter { it != playerPos && it != goalPos }.shuffled()
+            val candidates = allCells.filter { it != playerPos && it != goalPos }.shuffled(rng)
             val chosenTraps = mutableListOf<HexCoord>()
 
             for (candidate in candidates) {
@@ -149,7 +157,7 @@ class GameState {
         if (gameMode == GameMode.TIME_RUSH) {
             val initialTime = max(10, 30 - (level / 3))
             timeRemaining = initialTime
-            val validTimeCells = grid.keys.filter { it != playerPos && it != goalPos }.shuffled()
+            val validTimeCells = grid.keys.filter { it != playerPos && it != goalPos }.shuffled(rng)
             timeBonusOrbs = validTimeCells.take(2).toSet()
         } else {
             timeRemaining = 0
