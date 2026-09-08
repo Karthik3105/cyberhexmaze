@@ -166,7 +166,10 @@ object CloudSaveManager {
                             val unlockedModes = json.optJSONArray("unlockedModes")
                             if (unlockedModes != null) {
                                 for (i in 0 until unlockedModes.length()) {
-                                    prefsManager.unlockMode(unlockedModes.getInt(i), syncCloud = false)
+                                    val mId = unlockedModes.getInt(i)
+                                    if (mId != 9 && mId != 4) {
+                                        prefsManager.unlockMode(mId, syncCloud = false)
+                                    }
                                 }
                             }
                             val unlockedAvatars = json.optJSONArray("unlockedAvatars")
@@ -195,6 +198,7 @@ object CloudSaveManager {
 
                             onComplete?.invoke(true)
                         } else {
+                            prefsManager.clearLocalData()
                             onComplete?.invoke(false)
                         }
                     } catch (e: Exception) {

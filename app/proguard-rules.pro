@@ -18,11 +18,22 @@
 # 4. AndroidX Room Database & App Data Models
 -keep class androidx.room.** { *; }
 -dontwarn androidx.room.**
+-keep class * extends androidx.room.RoomDatabase
+-keepclassmembers class * extends androidx.room.RoomDatabase {
+    void <init>();
+}
+-keep class **_Impl {
+    public <init>();
+}
 -keep class com.example.honeycombmaze.data.** { *; }
 -keepclassmembers class * {
     @androidx.room.Dao *;
     @androidx.room.Entity *;
 }
+
+# AndroidX WorkManager & Startup
+-keep class androidx.work.** { *; }
+-keep class androidx.startup.** { *; }
 
 # 5. Org JSON & Gson Serialization
 -keep class org.json.** { *; }

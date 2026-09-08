@@ -79,7 +79,7 @@ class MazeGenerator {
         }
         
         val braidChance = when (gameMode) {
-            GameMode.CLASSIC, GameMode.LAVA_FLOOR -> 0.0
+            GameMode.CLASSIC, GameMode.LAVA_FLOOR, GameMode.CIRCUIT_GATES -> 0.0
             else -> 0.15
         }
 

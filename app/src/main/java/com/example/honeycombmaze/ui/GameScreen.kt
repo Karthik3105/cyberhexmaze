@@ -123,6 +123,16 @@ fun GameScreen(
             }
         }
 
+        val itemTextPaint = remember(hexSize) {
+            android.graphics.Paint().apply {
+                textSize = hexSize * 0.42f
+                textAlign = android.graphics.Paint.Align.CENTER
+                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                color = android.graphics.Color.WHITE
+                isAntiAlias = true
+            }
+        }
+
         fun isVisible(coord: com.example.honeycombmaze.game.HexCoord): Boolean {
             if (gameState.gameMode != com.example.honeycombmaze.game.GameMode.DARKNESS) return true
             val dist = (kotlin.math.abs(coord.q - gameState.playerPos.q) + 
@@ -170,7 +180,7 @@ fun GameScreen(
         }
 
         LaunchedEffect(gameState.isGameOver) {
-            if (gameState.isGameOver && gameState.gameMode == com.example.honeycombmaze.game.GameMode.TRAPS && gameState.traps.contains(gameState.playerPos)) {
+            if (gameState.isGameOver && (gameState.gameMode == com.example.honeycombmaze.game.GameMode.TRAPS && gameState.traps.contains(gameState.playerPos))) {
                 val center = layout.hexToPixel(gameState.playerPos)
                 val newParticles = (0..50).map { i ->
                     val angle = (Math.random() * PI * 2).toFloat()
@@ -183,22 +193,22 @@ fun GameScreen(
                         vy = kotlin.math.sin(angle) * speed,
                         life = 1f,
                         maxLife = (Math.random() * 0.5f + 0.5f).toFloat(),
-                        color = Color(0xFFFF5500)
+                        color = Color(0xFFFF1744)
                     )
                 }
                 particles = particles + newParticles
             }
         }
 
-        LaunchedEffect(Unit) {
-            var lastTime = 0L
-            while (true) {
-                androidx.compose.runtime.withFrameMillis { frameTime ->
-                    if (lastTime == 0L) lastTime = frameTime
-                    val dt = (frameTime - lastTime) / 1000f
-                    lastTime = frameTime
-                    
-                    if (particles.isNotEmpty()) {
+        LaunchedEffect(particles.isNotEmpty()) {
+            if (particles.isNotEmpty()) {
+                var lastTime = 0L
+                while (true) {
+                    androidx.compose.runtime.withFrameMillis { frameTime ->
+                        if (lastTime == 0L) lastTime = frameTime
+                        val dt = (frameTime - lastTime) / 1000f
+                        lastTime = frameTime
+                        
                         particles = particles.mapNotNull { p ->
                             val newLife = p.life - dt
                             if (newLife > 0) {
@@ -310,6 +320,14 @@ fun GameScreen(
                         Pair(Color(0x4400E5FF), Color(0xFF00E5FF))
                     com.example.honeycombmaze.game.GameMode.TIME_RUSH -> 
                         Pair(Color(0x4476FF03), Color(0xFF76FF03))
+                    com.example.honeycombmaze.game.GameMode.DUAL_SYNC -> 
+                        Pair(Color(0x44E040FB), Color(0xFFE040FB))
+                    com.example.honeycombmaze.game.GameMode.LASER_SENTINELS -> 
+                        Pair(Color(0x44FF1744), Color(0xFFFF1744))
+                    com.example.honeycombmaze.game.GameMode.CIRCUIT_GATES -> 
+                        Pair(Color(0x4400E5FF), Color(0xFF00E5FF))
+                    com.example.honeycombmaze.game.GameMode.STEALTH_PATROL -> 
+                        Pair(Color(0x44FFD600), Color(0xFFFFD600))
                 }
 
                 // Dual-Pass Glowing Walls
@@ -335,10 +353,9 @@ fun GameScreen(
                 }
             }
 
-            // Draw Goal Exit Portal (Golden Vortex + Attractive GOAL Text)
+            // Draw Primary Goal Exit (Golden Vortex)
             if (isVisible(gameState.goalPos)) {
                 val goalCenter = layout.hexToPixel(gameState.goalPos)
-                // Outer pulsing bloom ring
                 drawCircle(
                     color = Color(0x44FFD740),
                     radius = hexSize * pulseScale * 1.25f,
@@ -359,7 +376,6 @@ fun GameScreen(
                     radius = hexSize * 0.54f,
                     center = Offset(goalCenter.x, goalCenter.y)
                 )
-                // Render attractive GOAL text
                 drawContext.canvas.nativeCanvas.drawText(
                     "🎯 GOAL",
                     goalCenter.x,
@@ -368,17 +384,35 @@ fun GameScreen(
                 )
             }
 
-            // Draw Traps
-            for (trapPos in gameState.traps) {
-                if (!isVisible(trapPos)) continue
-                val trapCenter = layout.hexToPixel(trapPos)
-                val path = Path().apply {
-                    moveTo(trapCenter.x, trapCenter.y - hexSize * 0.42f)
-                    lineTo(trapCenter.x - hexSize * 0.35f, trapCenter.y + hexSize * 0.35f)
-                    lineTo(trapCenter.x + hexSize * 0.35f, trapCenter.y + hexSize * 0.35f)
-                    close()
-                }
-                drawPath(path, Color(0xFFFF5500))
+            // Draw Mode 7: Dual Sync Clone Goal (Purple Vortex)
+            if (gameState.gameMode == com.example.honeycombmaze.game.GameMode.DUAL_SYNC && isVisible(gameState.cloneGoalPos)) {
+                val cloneGoalCenter = layout.hexToPixel(gameState.cloneGoalPos)
+                drawCircle(
+                    color = Color(0x44E040FB),
+                    radius = hexSize * pulseScale * 1.25f,
+                    center = Offset(cloneGoalCenter.x, cloneGoalCenter.y)
+                )
+                drawCircle(
+                    color = Color(0x88E040FB),
+                    radius = hexSize * pulseScale * 1.05f,
+                    center = Offset(cloneGoalCenter.x, cloneGoalCenter.y)
+                )
+                drawCircle(
+                    color = Color(0xFFE040FB),
+                    radius = hexSize * 0.65f,
+                    center = Offset(cloneGoalCenter.x, cloneGoalCenter.y)
+                )
+                drawCircle(
+                    color = Color(0xFF14192B),
+                    radius = hexSize * 0.54f,
+                    center = Offset(cloneGoalCenter.x, cloneGoalCenter.y)
+                )
+                drawContext.canvas.nativeCanvas.drawText(
+                    "🔮 TWIN",
+                    cloneGoalCenter.x,
+                    cloneGoalCenter.y + (hexSize * 0.14f),
+                    goalTextPaint
+                )
             }
 
             // Draw Lava Floor Tiles
@@ -428,6 +462,152 @@ fun GameScreen(
                     }
                 }
             }
+
+            // Draw Mode 9: Circuit Gates & Terminals
+            if (gameState.gameMode == com.example.honeycombmaze.game.GameMode.CIRCUIT_GATES) {
+                for (sw in gameState.circuitSwitches) {
+                    if (!isVisible(sw.pos)) continue
+                    val sc = layout.hexToPixel(sw.pos)
+                    val swColor = when (sw.color) {
+                        com.example.honeycombmaze.game.CircuitColor.RED -> Color(0xFFFF1744)
+                        com.example.honeycombmaze.game.CircuitColor.BLUE -> Color(0xFF00E5FF)
+                        com.example.honeycombmaze.game.CircuitColor.GREEN -> Color(0xFF00E676)
+                    }
+                    val isActive = sw.color == gameState.activeCircuitColor
+                    drawCircle(
+                        color = if (isActive) swColor.copy(alpha = 0.5f) else swColor.copy(alpha = 0.2f),
+                        radius = hexSize * (if (isActive) pulseScale * 1.1f else 0.7f),
+                        center = Offset(sc.x, sc.y)
+                    )
+                    drawCircle(
+                        color = swColor,
+                        radius = hexSize * 0.45f,
+                        center = Offset(sc.x, sc.y),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = if (isActive) 4f else 2f)
+                    )
+                    val label = when (sw.color) {
+                        com.example.honeycombmaze.game.CircuitColor.RED -> "🔴"
+                        com.example.honeycombmaze.game.CircuitColor.BLUE -> "🔵"
+                        com.example.honeycombmaze.game.CircuitColor.GREEN -> "🟢"
+                    }
+                    drawContext.canvas.nativeCanvas.drawText(
+                        label,
+                        sc.x,
+                        sc.y + (hexSize * 0.14f),
+                        itemTextPaint
+                    )
+                }
+
+                for (g in gameState.circuitGates) {
+                    val cellCorners = layout.polygonCorners(g.fromCoord)
+                    val p1 = cellCorners[g.wallIndex]
+                    val p2 = cellCorners[(g.wallIndex + 1) % 6]
+                    val isOpen = g.color == gameState.activeCircuitColor
+                    val gateColor = when (g.color) {
+                        com.example.honeycombmaze.game.CircuitColor.RED -> Color(0xFFFF1744)
+                        com.example.honeycombmaze.game.CircuitColor.BLUE -> Color(0xFF00E5FF)
+                        com.example.honeycombmaze.game.CircuitColor.GREEN -> Color(0xFF00E676)
+                    }
+                    if (!isOpen) {
+                        // Closed laser barrier (bright neon + white energy core)
+                        drawLine(
+                            color = gateColor,
+                            start = Offset(p1.x, p1.y),
+                            end = Offset(p2.x, p2.y),
+                            strokeWidth = 10f
+                        )
+                        drawLine(
+                            color = Color.White,
+                            start = Offset(p1.x, p1.y),
+                            end = Offset(p2.x, p2.y),
+                            strokeWidth = 3f
+                        )
+                    } else {
+                        // Open / pass-through barrier (dim translucent line)
+                        drawLine(
+                            color = gateColor.copy(alpha = 0.3f),
+                            start = Offset(p1.x, p1.y),
+                            end = Offset(p2.x, p2.y),
+                            strokeWidth = 4f
+                        )
+                    }
+                }
+            }
+
+            // Draw Mode 10: Stealth Patrol Searchlights & Drones
+            if (gameState.gameMode == com.example.honeycombmaze.game.GameMode.STEALTH_PATROL) {
+                for (vc in gameState.droneVisionTiles) {
+                    if (!isVisible(vc)) continue
+                    val vPx = layout.hexToPixel(vc)
+                    drawCircle(
+                        color = Color(0x44FFD600),
+                        radius = hexSize * pulseScale * 0.95f,
+                        center = Offset(vPx.x, vPx.y)
+                    )
+                    drawCircle(
+                        color = Color(0x88FFD600),
+                        radius = hexSize * 0.48f,
+                        center = Offset(vPx.x, vPx.y),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
+                    )
+                }
+
+                for (d in gameState.patrolDrones) {
+                    if (!isVisible(d.pos)) continue
+                    val dc = layout.hexToPixel(d.pos)
+                    val isGuardian = d.isGoalGuardian
+                    val primaryColor = if (isGuardian) Color(0xFFFF3D00) else Color(0xFFFFD600)
+                    val glowColor = if (isGuardian) Color(0x55FF3D00) else Color(0x55FFD600)
+
+                    // Outer scanner glow ring
+                    drawCircle(
+                        color = glowColor,
+                        radius = hexSize * (if (isGuardian) 0.52f else 0.46f),
+                        center = Offset(dc.x, dc.y)
+                    )
+
+                    // Direction visor pointer indicating facingDir
+                    val targetNbr = d.pos.getNeighbor(d.facingDir)
+                    val targetPx = layout.hexToPixel(targetNbr)
+                    val dirX = targetPx.x - dc.x
+                    val dirY = targetPx.y - dc.y
+                    val dirLen = kotlin.math.hypot(dirX, dirY)
+                    if (dirLen > 0f) {
+                        val uX = dirX / dirLen
+                        val uY = dirY / dirLen
+                        val pFront = Offset(dc.x + uX * hexSize * 0.48f, dc.y + uY * hexSize * 0.48f)
+                        val pLeft = Offset(dc.x + uX * hexSize * 0.22f - uY * hexSize * 0.16f, dc.y + uY * hexSize * 0.22f + uX * hexSize * 0.16f)
+                        val pRight = Offset(dc.x + uX * hexSize * 0.22f + uY * hexSize * 0.16f, dc.y + uY * hexSize * 0.22f - uX * hexSize * 0.16f)
+                        val pointerPath = androidx.compose.ui.graphics.Path().apply {
+                            moveTo(pFront.x, pFront.y)
+                            lineTo(pLeft.x, pLeft.y)
+                            lineTo(pRight.x, pRight.y)
+                            close()
+                        }
+                        drawPath(pointerPath, color = primaryColor)
+                    }
+
+                    // Main body
+                    drawCircle(
+                        color = primaryColor,
+                        radius = hexSize * 0.40f,
+                        center = Offset(dc.x, dc.y)
+                    )
+                    drawCircle(
+                        color = Color(0xFF14192B),
+                        radius = hexSize * 0.28f,
+                        center = Offset(dc.x, dc.y)
+                    )
+
+                    // Icon / Scanner Eye
+                    drawContext.canvas.nativeCanvas.drawText(
+                        if (isGuardian) "🚨" else "👁️",
+                        dc.x,
+                        dc.y + (hexSize * 0.13f),
+                        itemTextPaint
+                    )
+                }
+            }
         }
         
         val playerTarget = layout.hexToPixel(gameState.playerPos)
@@ -444,6 +624,21 @@ fun GameScreen(
             }
         }
         playerCenterPixel = Offset(playerX.value, playerY.value)
+
+        // Mode 7: Dual Sync Clone Avatar Animation
+        val cloneTarget = layout.hexToPixel(gameState.clonePos)
+        val cloneX = remember(gameState.level) { androidx.compose.animation.core.Animatable(cloneTarget.x) }
+        val cloneY = remember(gameState.level) { androidx.compose.animation.core.Animatable(cloneTarget.y) }
+        LaunchedEffect(cloneTarget) {
+            if (kotlin.math.abs(cloneX.value - cloneTarget.x) > hexSize * 2) {
+                cloneX.snapTo(cloneTarget.x)
+                cloneY.snapTo(cloneTarget.y)
+            } else {
+                launch { cloneX.animateTo(cloneTarget.x, tween(150)) }
+                launch { cloneY.animateTo(cloneTarget.y, tween(150)) }
+            }
+        }
+        val cloneCenterPixel = Offset(cloneX.value, cloneY.value)
 
         val animatedEnemies = gameState.enemies.mapIndexed { index, enemyPos ->
             val target = layout.hexToPixel(enemyPos)
@@ -496,6 +691,31 @@ fun GameScreen(
                     playerCenterPixel.x,
                     playerCenterPixel.y + (hexSize * 0.32f),
                     emojiPaint
+                )
+            }
+
+            // Draw Mode 7: Dual Sync Clone Avatar (Fuchsia Twin)
+            if (gameState.gameMode == com.example.honeycombmaze.game.GameMode.DUAL_SYNC) {
+                drawCircle(
+                    color = Color(0x44E040FB),
+                    radius = hexSize * pulseScale * 1.1f,
+                    center = cloneCenterPixel
+                )
+                drawCircle(
+                    color = Color(0xAAE040FB),
+                    radius = hexSize * 0.55f,
+                    center = cloneCenterPixel
+                )
+                drawCircle(
+                    color = Color(0xFFE040FB),
+                    radius = hexSize * 0.42f,
+                    center = cloneCenterPixel
+                )
+                drawContext.canvas.nativeCanvas.drawText(
+                    "👥",
+                    cloneCenterPixel.x,
+                    cloneCenterPixel.y + (hexSize * 0.14f),
+                    itemTextPaint
                 )
             }
             
@@ -555,7 +775,8 @@ fun GameScreen(
                     )
                 }
                 
-                Spacer(modifier = Modifier.height(10.dp))
+                
+                Spacer(modifier = Modifier.height(8.dp))
                 
                 // Stats Row Cards
                 Row(
@@ -648,7 +869,7 @@ fun GameScreen(
         
         if (gameState.isWon) {
             val isLastLevel = gameState.level >= 100
-            val honeyAwarded = ((gameState.level - 1) / 10) + 1
+            val honeyAwarded = com.example.honeycombmaze.game.getLevelCoinReward(gameState.level)
             var animatedHoney by remember { mutableStateOf(0) }
             
             LaunchedEffect(Unit) {
@@ -760,12 +981,14 @@ fun GameScreen(
                     fontWeight = FontWeight.ExtraBold
                 )
                 Text(
-                    text = if (gameState.gameMode == com.example.honeycombmaze.game.GameMode.TRAPS) 
-                            "💥 You hit a trap spike!" 
-                           else if (gameState.gameMode == com.example.honeycombmaze.game.GameMode.TIME_RUSH)
-                            "⏱️ Time ran out!"
-                           else 
-                            "👾 Caught by enemy!",
+                    text = when (gameState.gameMode) {
+                        com.example.honeycombmaze.game.GameMode.TIME_RUSH -> "⏱️ Time ran out!"
+                        com.example.honeycombmaze.game.GameMode.STEALTH_PATROL -> "🚨 Caught by Security Drone!"
+                        com.example.honeycombmaze.game.GameMode.LAVA_FLOOR -> "🔥 Melted in Lava!"
+                        com.example.honeycombmaze.game.GameMode.LASER_SENTINELS -> "⚡ Hit by Laser Beam!"
+                        com.example.honeycombmaze.game.GameMode.TRAPS -> "💥 Stepped on a Trap!"
+                        else -> "👾 Caught by enemy!"
+                    },
                     color = Color.White.copy(alpha = 0.8f),
                     fontSize = 15.sp,
                     modifier = Modifier.padding(top = 8.dp)

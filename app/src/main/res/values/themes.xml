@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <style name="Theme.HoneyCombMaze" parent="android:Theme.Material.Light.NoActionBar" />
     
@@ -7,5 +7,9 @@
         <item name="windowSplashScreenBackground">#0F0E17</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
         <item name="postSplashScreenTheme">@style/Theme.HoneyCombMaze</item>
+    </style>
+
+    <style name="AdActivityTheme" parent="@android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>
     </style>
 </resources>

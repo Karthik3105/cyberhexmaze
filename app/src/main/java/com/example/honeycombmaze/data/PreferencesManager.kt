@@ -24,9 +24,12 @@ class PreferencesManager(private val context: Context) {
                 backupHoney = json.optInt("honey", 0)
                 val unlockedModes = json.optJSONArray("unlockedModes")
                 if (unlockedModes != null) {
+                    val setupDone = prefs.getBoolean("swap_darkness_stealth_v1", false)
                     for (i in 0 until unlockedModes.length()) {
                         val mId = unlockedModes.getInt(i)
-                        prefs.edit().putBoolean("$KEY_MODE_UNLOCKED_$mId", true).apply()
+                        if (mId != 9 && !(mId == 4 && !setupDone)) {
+                            prefs.edit().putBoolean("$KEY_MODE_UNLOCKED_$mId", true).apply()
+                        }
                     }
                 }
                 val unlockedAvatars = json.optJSONArray("unlockedAvatars")
@@ -142,6 +145,38 @@ class PreferencesManager(private val context: Context) {
             CloudSaveManager.saveToCloud(context, this)
         }
 
+    init {
+        // Migration: Ensure Darkness (4) starts locked at 2500 coins, Stealth Patrol (10) is free, Circuit Gates (9) is removed
+        if (!prefs.getBoolean("swap_darkness_stealth_v1", false)) {
+            prefs.edit()
+                .remove("${KEY_MODE_UNLOCKED_}4")
+                .remove("mode_levels_unlocked_4")
+                .remove("${KEY_MODE_UNLOCKED_}9")
+                .putBoolean("${KEY_MODE_UNLOCKED_}10", true)
+                .putBoolean("swap_darkness_stealth_v1", true)
+                .apply()
+            try {
+                val file = getInternalBackupFile()
+                if (file.exists()) {
+                    val json = JSONObject(file.readText(Charsets.UTF_8))
+                    val unlockedModes = json.optJSONArray("unlockedModes")
+                    if (unlockedModes != null) {
+                        val newModes = org.json.JSONArray()
+                        for (i in 0 until unlockedModes.length()) {
+                            val mId = unlockedModes.getInt(i)
+                            if (mId != 4 && mId != 9) {
+                                newModes.put(mId)
+                            }
+                        }
+                        newModes.put(10)
+                        json.put("unlockedModes", newModes)
+                        file.writeText(json.toString(), Charsets.UTF_8)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
     fun isAvatarUnlocked(avatarId: String): Boolean {
         if (avatarId == "default") return true
         return prefs.getBoolean("avatar_unlocked_$avatarId", false)
@@ -156,8 +191,9 @@ class PreferencesManager(private val context: Context) {
     }
 
     fun isModeUnlocked(modeId: Int): Boolean {
-        // Classic, Chasers, Traps, Teleporters (0..3) are unlocked by default
-        if (modeId in 0..3) return true
+        // Free modes: Classic (0), Chasers (1), Traps (2), Lava Floor (3), Ice Slide (5), Time Rush (6), Stealth Patrol (10)
+        // Darkness (4) requires 2500 coins, Dual Sync (7) requires 1000 coins
+        if ((modeId in 0..6 && modeId != 4) || modeId == 10) return true
         return prefs.getBoolean("$KEY_MODE_UNLOCKED_$modeId", false)
     }
 
@@ -214,10 +250,11 @@ class PreferencesManager(private val context: Context) {
         }
     }
 
-    fun resetAllData() {
+    fun clearLocalData() {
         prefs.edit().clear().commit()
         _honeyState.intValue = 0
         _selectedAvatarState.value = "default"
+        _isRemoveAdsPurchasedState.value = false
         try {
             val file = getInternalBackupFile()
             if (file.exists()) {
@@ -226,6 +263,10 @@ class PreferencesManager(private val context: Context) {
         } catch (e: Exception) {
             Log.e("PreferencesManager", "Error deleting internal backup: ${e.message}")
         }
+    }
+
+    fun resetAllData() {
+        clearLocalData()
         CloudSaveManager.resetCloudSave(context, this)
     }
 
@@ -240,9 +281,8 @@ class PreferencesManager(private val context: Context) {
         
         // Mode unlocking costs
         val MODE_COSTS = mapOf(
-            4 to 500,   // DARKNESS
-            5 to 2000,   // ICE_SLIDE
-            6 to 5000   // TIME_RUSH
+            7 to 1000,   // DUAL_SYNC
+            4 to 2500    // DARKNESS
         )
     }
 }

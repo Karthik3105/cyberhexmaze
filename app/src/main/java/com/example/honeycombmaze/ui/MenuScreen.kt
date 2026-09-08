@@ -208,20 +208,6 @@ fun MainMenuScreen(
                 }
                 item {
                     ModeCard(
-                        mode = GameMode.TRAPS,
-                        title = "Traps",
-                        subtitle = "Beware the orange spikes!",
-                        color = NeonYellow,
-                        icon = Icons.Default.Warning,
-                        isNew = false,
-                        prefsManager = prefsManager,
-                        currentHoney = currentHoney,
-                        onUnlock = { },
-                        onClick = { onModeSelected(GameMode.TRAPS) }
-                    )
-                }
-                item {
-                    ModeCard(
                         mode = GameMode.LAVA_FLOOR,
                         title = "Lava Floor",
                         subtitle = "The floor is lava! Don't retrace steps",
@@ -236,16 +222,16 @@ fun MainMenuScreen(
                 }
                 item {
                     ModeCard(
-                        mode = GameMode.DARKNESS,
-                        title = "Darkness",
-                        subtitle = "Fog of War mechanics",
-                        color = NeonPurple,
-                        icon = Icons.Default.VisibilityOff,
+                        mode = GameMode.STEALTH_PATROL,
+                        title = "Stealth Patrol",
+                        subtitle = "Sneak past drone searchlight vision cones!",
+                        color = Color(0xFFFFD600), // Electric Yellow
+                        icon = Icons.Default.AccountBox,
                         isNew = false,
                         prefsManager = prefsManager,
                         currentHoney = currentHoney,
                         onUnlock = { },
-                        onClick = { onModeSelected(GameMode.DARKNESS) }
+                        onClick = { onModeSelected(GameMode.STEALTH_PATROL) }
                     )
                 }
                 item {
@@ -274,6 +260,34 @@ fun MainMenuScreen(
                         currentHoney = currentHoney,
                         onUnlock = { },
                         onClick = { onModeSelected(GameMode.TIME_RUSH) }
+                    )
+                }
+                item {
+                    ModeCard(
+                        mode = GameMode.DUAL_SYNC,
+                        title = "Dual Sync",
+                        subtitle = "Control 2 synchronized avatars at once!",
+                        color = Color(0xFFE040FB), // Neon Magenta
+                        icon = Icons.Default.AllInclusive,
+                        isNew = false,
+                        prefsManager = prefsManager,
+                        currentHoney = currentHoney,
+                        onUnlock = { },
+                        onClick = { onModeSelected(GameMode.DUAL_SYNC) }
+                    )
+                }
+                item {
+                    ModeCard(
+                        mode = GameMode.DARKNESS,
+                        title = "Darkness",
+                        subtitle = "Fog of War mechanics",
+                        color = NeonPurple,
+                        icon = Icons.Default.VisibilityOff,
+                        isNew = false,
+                        prefsManager = prefsManager,
+                        currentHoney = currentHoney,
+                        onUnlock = { },
+                        onClick = { onModeSelected(GameMode.DARKNESS) }
                     )
                 }
                 
@@ -527,7 +541,9 @@ fun ModeCard(
     onUnlock: () -> Unit,
     onClick: () -> Unit
 ) {
-    val isUnlocked = prefsManager.isModeUnlocked(mode.id)
+    var isUnlocked by remember(mode.id, currentHoney) {
+        mutableStateOf(prefsManager.isModeUnlocked(mode.id))
+    }
     val cost = com.example.honeycombmaze.data.PreferencesManager.MODE_COSTS[mode.id] ?: 0
     var showBuyDialog by remember { mutableStateOf(false) }
 
@@ -537,15 +553,19 @@ fun ModeCard(
             title = { Text("Unlock Mode", fontWeight = FontWeight.Bold) },
             text = { Text("Unlock $title for $cost Coins? You have $currentHoney Coins.") },
             confirmButton = {
-                TextButton(onClick = {
-                    showBuyDialog = false
-                    if (currentHoney >= cost) {
-                        prefsManager.honey -= cost
-                        prefsManager.unlockMode(mode.id)
-                        onUnlock()
-                    }
-                }) {
-                    Text("UNLOCK")
+                TextButton(
+                    onClick = {
+                        if (currentHoney >= cost) {
+                            showBuyDialog = false
+                            prefsManager.honey -= cost
+                            prefsManager.unlockMode(mode.id)
+                            isUnlocked = true
+                            onUnlock()
+                        }
+                    },
+                    enabled = currentHoney >= cost
+                ) {
+                    Text(if (currentHoney >= cost) "UNLOCK" else "NOT ENOUGH COINS")
                 }
             },
             dismissButton = {

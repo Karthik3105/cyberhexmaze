@@ -229,6 +229,8 @@ class BillingManager(
         const val PRODUCT_UNLOCK_LAVA = "unlocklava"
         const val PRODUCT_UNLOCK_ICESLIDE = "unlockiceslide"
         const val PRODUCT_UNLOCK_TIME = "unlocktime"
+        const val PRODUCT_UNLOCK_DUALSYNC = "unlockdual"
+        const val PRODUCT_UNLOCK_STEALTH = "unlockstealth"
 
         fun getProductIdForMode(mode: com.example.honeycombmaze.game.GameMode): String {
             return when (mode) {
@@ -239,6 +241,10 @@ class BillingManager(
                 com.example.honeycombmaze.game.GameMode.LAVA_FLOOR -> PRODUCT_UNLOCK_LAVA
                 com.example.honeycombmaze.game.GameMode.ICE_SLIDE -> PRODUCT_UNLOCK_ICESLIDE
                 com.example.honeycombmaze.game.GameMode.TIME_RUSH -> PRODUCT_UNLOCK_TIME
+                com.example.honeycombmaze.game.GameMode.DUAL_SYNC -> PRODUCT_UNLOCK_DUALSYNC
+                com.example.honeycombmaze.game.GameMode.LASER_SENTINELS -> "unlocklasers"
+                com.example.honeycombmaze.game.GameMode.CIRCUIT_GATES -> "unlockcircuits"
+                com.example.honeycombmaze.game.GameMode.STEALTH_PATROL -> PRODUCT_UNLOCK_STEALTH
             }
         }
 
@@ -251,6 +257,10 @@ class BillingManager(
                 PRODUCT_UNLOCK_LAVA -> com.example.honeycombmaze.game.GameMode.LAVA_FLOOR
                 PRODUCT_UNLOCK_ICESLIDE -> com.example.honeycombmaze.game.GameMode.ICE_SLIDE
                 PRODUCT_UNLOCK_TIME -> com.example.honeycombmaze.game.GameMode.TIME_RUSH
+                PRODUCT_UNLOCK_DUALSYNC, "unlockdual", "unlockdualsync" -> com.example.honeycombmaze.game.GameMode.DUAL_SYNC
+                "unlocklasers" -> com.example.honeycombmaze.game.GameMode.LASER_SENTINELS
+                "unlockcircuits" -> com.example.honeycombmaze.game.GameMode.CIRCUIT_GATES
+                PRODUCT_UNLOCK_STEALTH, "unlockstealth" -> com.example.honeycombmaze.game.GameMode.STEALTH_PATROL
                 else -> null
             }
         }
@@ -263,7 +273,14 @@ class BillingManager(
             PRODUCT_UNLOCK_DARKNESS,
             PRODUCT_UNLOCK_LAVA,
             PRODUCT_UNLOCK_ICESLIDE,
-            PRODUCT_UNLOCK_TIME
+            PRODUCT_UNLOCK_TIME,
+            PRODUCT_UNLOCK_DUALSYNC,
+            "unlockdual",
+            "unlockdualsync",
+            "unlocklasers",
+            "unlockcircuits",
+            PRODUCT_UNLOCK_STEALTH,
+            "unlockstealth"
         )
     }
 }

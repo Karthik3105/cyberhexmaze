@@ -44,4 +44,62 @@ class ExampleUnitTest {
             }
         }
     }
+
+    @Test
+    fun testDualSyncSolvability() {
+        fun isSolvable(state: GameState): Boolean {
+            val startHero = state.playerPos
+            val startClone = state.clonePos
+            val targetHero = state.goalPos
+            val targetClone = state.cloneGoalPos
+            val grid = state.grid
+
+            val queue = java.util.ArrayDeque<Pair<com.example.honeycombmaze.game.HexCoord, com.example.honeycombmaze.game.HexCoord>>()
+            val visited = mutableSetOf<Pair<com.example.honeycombmaze.game.HexCoord, com.example.honeycombmaze.game.HexCoord>>()
+
+            val startState = Pair(startHero, startClone)
+            queue.add(startState)
+            visited.add(startState)
+
+            while (queue.isNotEmpty()) {
+                val (hero, clone) = queue.removeFirst()
+                if (hero == targetHero && clone == targetClone) {
+                    return true
+                }
+
+                for (dir in 0..5) {
+                    val heroCell = grid[hero]
+                    var nextHero = hero
+                    if (heroCell != null && !heroCell.walls[dir]) {
+                        val nxt = hero.getNeighbor(dir)
+                        if (grid.containsKey(nxt)) nextHero = nxt
+                    }
+
+                    val cloneCell = grid[clone]
+                    var nextClone = clone
+                    if (cloneCell != null && !cloneCell.walls[dir]) {
+                        val nxt = clone.getNeighbor(dir)
+                        if (grid.containsKey(nxt)) nextClone = nxt
+                    }
+
+                    val nextState = Pair(nextHero, nextClone)
+                    if (nextState !in visited) {
+                        visited.add(nextState)
+                        queue.add(nextState)
+                    }
+                }
+            }
+            return false
+        }
+
+        val targetLevels = listOf(3, 8, 16, 52)
+        for (lvl in targetLevels) {
+            val state = GameState().apply {
+                gameMode = GameMode.DUAL_SYNC
+                level = lvl
+                startNewGame()
+            }
+            assertTrue("Dual Sync level $lvl should be solvable", isSolvable(state))
+        }
+    }
 }
