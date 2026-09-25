@@ -452,7 +452,7 @@ fun AvatarSelectionDialog(
                                         color = if (isEquipped) NeonGreen else if (isUnlocked) CardBorder else Color(0xFF2A3447),
                                         shape = RoundedCornerShape(12.dp)
                                     )
-                                    .clickable {
+                                                                                                 .clickable {
                                         if (isUnlocked) {
                                             prefsManager.selectedAvatar = avatar.id
                                         } else if (currentHoney >= avatar.cost) {

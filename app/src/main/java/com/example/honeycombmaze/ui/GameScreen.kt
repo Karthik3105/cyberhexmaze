@@ -96,10 +96,10 @@ fun GameScreen(
         val heightF = constraints.maxHeight.toFloat()
         
         val density = androidx.compose.ui.platform.LocalDensity.current.density
-        val topOffset = minOf(65f * density, heightF * 0.075f)
-        val bottomOffset = minOf(145f * density, heightF * 0.17f)
+        val topOffset = minOf(115f * density, heightF * 0.14f)
+        val bottomOffset = minOf(125f * density, heightF * 0.15f)
         
-        val availableHeight = kotlin.math.max(heightF - topOffset - bottomOffset, heightF * 0.6f)
+        val availableHeight = kotlin.math.max(heightF - topOffset - bottomOffset, heightF * 0.55f)
     
         val hexSizeX = (widthF - 12f * density) / (gameState.gridCols + 0.5f) / kotlin.math.sqrt(3f)
         val hexSizeY = (availableHeight - 8f * density) / (gameState.gridRows * 1.5f + 0.5f)
@@ -107,7 +107,7 @@ fun GameScreen(
 
         val center = Point(
             x = widthF / 2f - 0.25f * hexSize * kotlin.math.sqrt(3f),
-            y = topOffset + availableHeight / 2f
+            y = topOffset + availableHeight / 2f + 12f * density
         )
 
         val layout = HexLayout(hexSize, center)
@@ -862,9 +862,7 @@ fun GameScreen(
         
         HexController(
             modifier = Modifier.align(Alignment.BottomCenter),
-            onMove = { direction -> gameState.movePlayer(direction) },
-            isPaused = gameState.isPaused,
-            onTogglePause = { gameState.isPaused = !gameState.isPaused }
+            onMove = { direction -> gameState.movePlayer(direction) }
         )
         
         if (gameState.isWon) {
@@ -1027,54 +1025,79 @@ fun getDirectionFromSwipe(dx: Float, dy: Float): Int {
 }
 
 @Composable
-fun HexController(modifier: Modifier = Modifier, onMove: (Int) -> Unit, isPaused: Boolean, onTogglePause: () -> Unit) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.padding(bottom = 4.dp)
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            ControlButton(rotation = -60f, onClick = { onMove(2) })
-            ControlButton(rotation = 60f, onClick = { onMove(1) })
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ControlButton(rotation = -90f, onClick = { onMove(3) })
-            
-            IconButton(
-                onClick = onTogglePause,
-                modifier = Modifier
-                    .size(60.dp)
-                    .background(Color(0xFF232A42), CircleShape)
-                    .border(2.dp, NeonPurple, CircleShape)
-            ) {
-                Icon(
-                    imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                    contentDescription = if (isPaused) "Resume" else "Pause",
-                    tint = NeonPurple,
-                    modifier = Modifier.size(30.dp)
-                )
-            }
+fun HexController(
+    modifier: Modifier = Modifier,
+    onMove: (Int) -> Unit,
+    isPaused: Boolean = false,
+    onTogglePause: () -> Unit = {}
+) {
+    val buttonSize = 42.dp
+    val radiusX = 44.dp
+    val radiusY = 38.dp
 
-            ControlButton(rotation = 90f, onClick = { onMove(0) })
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            ControlButton(rotation = -120f, onClick = { onMove(4) })
-            ControlButton(rotation = 120f, onClick = { onMove(5) })
-        }
+    Box(
+        modifier = modifier
+            .padding(bottom = 6.dp)
+            .size(width = 132.dp, height = 118.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Top-Left (dir 2)
+        ControlButton(
+            rotation = -60f,
+            onClick = { onMove(2) },
+            size = buttonSize,
+            modifier = Modifier.offset(x = (-22).dp, y = -radiusY)
+        )
+        // Top-Right (dir 1)
+        ControlButton(
+            rotation = 60f,
+            onClick = { onMove(1) },
+            size = buttonSize,
+            modifier = Modifier.offset(x = 22.dp, y = -radiusY)
+        )
+        // Left (dir 3)
+        ControlButton(
+            rotation = -90f,
+            onClick = { onMove(3) },
+            size = buttonSize,
+            modifier = Modifier.offset(x = -radiusX, y = 0.dp)
+        )
+        // Right (dir 0)
+        ControlButton(
+            rotation = 90f,
+            onClick = { onMove(0) },
+            size = buttonSize,
+            modifier = Modifier.offset(x = radiusX, y = 0.dp)
+        )
+        // Bottom-Left (dir 4)
+        ControlButton(
+            rotation = -120f,
+            onClick = { onMove(4) },
+            size = buttonSize,
+            modifier = Modifier.offset(x = (-22).dp, y = radiusY)
+        )
+        // Bottom-Right (dir 5)
+        ControlButton(
+            rotation = 120f,
+            onClick = { onMove(5) },
+            size = buttonSize,
+            modifier = Modifier.offset(x = 22.dp, y = radiusY)
+        )
     }
 }
 
 @Composable
-fun ControlButton(rotation: Float, onClick: () -> Unit) {
+fun ControlButton(
+    rotation: Float,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 42.dp
+) {
     Button(
         onClick = onClick,
-        modifier = Modifier
-            .size(60.dp)
-            .border(2.dp, Color(0xFF00FFCC).copy(alpha = 0.8f), CircleShape)
+        modifier = modifier
+            .size(size)
+            .border(1.5.dp, Color(0xFF00FFCC).copy(alpha = 0.8f), CircleShape)
             .clip(CircleShape),
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B2236)),
         contentPadding = PaddingValues(0.dp)
@@ -1084,7 +1107,7 @@ fun ControlButton(rotation: Float, onClick: () -> Unit) {
             contentDescription = null,
             tint = Color(0xFF00FFCC),
             modifier = Modifier
-                .size(34.dp)
+                .size(24.dp)
                 .rotate(rotation)
         )
     }

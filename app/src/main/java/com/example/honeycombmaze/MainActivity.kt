@@ -176,7 +176,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         com.example.honeycombmaze.game.SoundManager.init()
-        com.example.honeycombmaze.data.CloudSaveManager.initializeAndSignIn(this)
+        com.example.honeycombmaze.data.CloudSaveManager.initSdk(this)
         
         val testDeviceIds = listOf("AA258783AFC4376739AEB16BC62D2817", AdRequest.DEVICE_ID_EMULATOR)
         val configuration = com.google.android.gms.ads.RequestConfiguration.Builder()
@@ -291,7 +291,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val dao = remember { AppDatabase.getDatabase(context).gameDataDao() }
-                val prefsManager = remember { com.example.honeycombmaze.data.PreferencesManager(context) }
+                val prefsManager = remember { com.example.honeycombmaze.data.PreferencesManager.getInstance(context) }
 
                 val triggerAd: (() -> Unit) -> Unit = { onProceed ->
                     val currentAd = mInterstitialAd
@@ -316,18 +316,21 @@ class MainActivity : ComponentActivity() {
                 val refreshMaxLevels: () -> Unit = {
                     scope.launch(Dispatchers.IO) {
                         GameMode.values().forEach { mode ->
-                            val data = dao.getGameData(mode.id)
-                            val dbLevel = data?.maxUnlockedLevel ?: 1
                             val prefLevel = prefsManager.getMaxUnlockedLevel(mode.id)
                             val isThisModeLevelsUnlocked = prefsManager.isModeLevelsUnlocked(mode.id)
-                            val highest = if (isThisModeLevelsUnlocked) 100 else maxOf(dbLevel, prefLevel)
+                            val highest = if (isThisModeLevelsUnlocked) 100 else prefLevel
                             withContext(Dispatchers.Main) {
                                 maxLevels[mode] = highest
                             }
-                            if (highest > dbLevel) {
-                                dao.saveGameData(GameData(mode.id, highest))
-                            }
+                            dao.saveGameData(GameData(mode.id, highest))
                         }
+                    }
+                }
+
+                androidx.compose.runtime.DisposableEffect(Unit) {
+                    refreshCallback = refreshMaxLevels
+                    onDispose {
+                        refreshCallback = null
                     }
                 }
 
@@ -638,26 +641,34 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        val prefs = com.example.honeycombmaze.data.PreferencesManager(this)
-        com.example.honeycombmaze.data.CloudSaveManager.initializeAndSignIn(this) {
-            com.example.honeycombmaze.data.CloudSaveManager.loadFromCloud(this, prefs)
+        val prefs = com.example.honeycombmaze.data.PreferencesManager.getInstance(this)
+        com.example.honeycombmaze.data.CloudSaveManager.checkSilentAuth(this) {
+            com.example.honeycombmaze.data.CloudSaveManager.loadFromCloud(this, prefs) {
+                refreshCallback?.invoke()
+            }
         }
     }
 
     override fun onPause() {
         super.onPause()
-        com.example.honeycombmaze.data.CloudSaveManager.saveToCloud(this, com.example.honeycombmaze.data.PreferencesManager(this))
+        // CRITICAL: Use forceSaveToCloud to ALWAYS save, even if hasLoadedFromCloud is false.
+        // This ensures user progress made during the sign-in window is never lost.
+        com.example.honeycombmaze.data.CloudSaveManager.forceSaveToCloud(this, com.example.honeycombmaze.data.PreferencesManager.getInstance(this))
     }
 
     override fun onStop() {
         super.onStop()
-        com.example.honeycombmaze.data.CloudSaveManager.saveToCloud(this, com.example.honeycombmaze.data.PreferencesManager(this))
+        com.example.honeycombmaze.data.CloudSaveManager.forceSaveToCloud(this, com.example.honeycombmaze.data.PreferencesManager.getInstance(this))
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        com.example.honeycombmaze.data.CloudSaveManager.saveToCloud(this, com.example.honeycombmaze.data.PreferencesManager(this))
+        com.example.honeycombmaze.data.CloudSaveManager.forceSaveToCloud(this, com.example.honeycombmaze.data.PreferencesManager.getInstance(this))
         com.example.honeycombmaze.game.SoundManager.release()
+    }
+
+    companion object {
+        var refreshCallback: (() -> Unit)? = null
     }
 }
 
